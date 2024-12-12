@@ -1,9 +1,14 @@
 {
-  "domain": "mon_appareil",
-  "name": "Mon Appareil",
-  "version": "1.0.0",
-  "documentation": "https://www.home-assistant.io/integrations/mon_appareil",
-  "requirements": [],
-  "dependencies": [],
-  "codeowners": ["@votre_utilisateur_github"]
+  "domain": "tuto_hacs",
+  "name": "Tuto HACS",
+  "codeowners": [
+      "@jmcollin78"
+  ],
+  "config_flow": false,
+  "documentation": "https://github.com/jmcollin78/tuto_hacs",
+  "issue_tracker": "https://github.com/jmcollin78/tuto_hacs/issues",
+  "integration_type": "device",
+  "iot_class": "calculated",
+  "quality_scale": "silver",
+  "version": "3.0.0"
 }
