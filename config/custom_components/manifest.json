@@ -1,10 +1,10 @@
 {
-    "domain": "mqtt_client",
-    "name": "MQTT Client",
-    "documentation": "https://www.home-assistant.io/integrations/mqtt_client",
-    "dependencies": [],
-    "codeowners": ["@Catalan34"],
-    "config_flow": true,
-    "version": "1.0.0"
-  }
-  
+  "domain": "cerbo_gx",
+  "name": "Cerbo GX",
+  "version": "1.0.0",
+  "documentation": "https://github.com/Lilian-Muxart/cerbo_gx_ha",
+  "dependencies": [],
+  "codeowners": ["@Lilian-Muxart"],
+  "requirements": [],
+  "homeassistant": "2021.6.0"
+}
