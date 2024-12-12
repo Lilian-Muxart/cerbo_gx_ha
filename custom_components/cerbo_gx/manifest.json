@@ -1,14 +1,9 @@
 {
-  "domain": "tuto_hacs",
-  "name": "Tuto HACS",
-  "codeowners": [
-      "@jmcollin78"
-  ],
-  "config_flow": false,
-  "documentation": "https://github.com/jmcollin78/tuto_hacs",
-  "issue_tracker": "https://github.com/jmcollin78/tuto_hacs/issues",
-  "integration_type": "device",
-  "iot_class": "calculated",
-  "quality_scale": "silver",
-  "version": "3.0.0"
+  "domain": "cerbo_gx",
+  "name": "Cerbo GX",
+  "documentation": "https://www.example.com/cerbo-gx",
+  "dependencies": ["mqtt"],
+  "codeowners": ["@votre_utilisateur"],
+  "version": "1.0.0",
+  "requirements": ["paho-mqtt"]
 }
