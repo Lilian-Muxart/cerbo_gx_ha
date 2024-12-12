@@ -1,0 +1,10 @@
+{
+    "domain": "mqtt_client",
+    "name": "MQTT Client",
+    "documentation": "https://www.home-assistant.io/integrations/mqtt_client",
+    "dependencies": [],
+    "codeowners": ["@Catalan34"],
+    "config_flow": true,
+    "version": "1.0.0"
+  }
+  
