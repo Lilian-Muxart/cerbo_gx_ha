@@ -1,11 +1,12 @@
 import logging
-import asyncio
 from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.components import mqtt
 from .mqtt_client import CerboMQTTClient
+from .config_flow import CerboGXConfigFlow  # Import du flux de configuration
+from homeassistant import config_entries
 
 DOMAIN = "cerbo_gx"
 _LOGGER = logging.getLogger(__name__)
@@ -13,6 +14,8 @@ _LOGGER = logging.getLogger(__name__)
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Configurer l'intégration Cerbo GX."""
     hass.data.setdefault(DOMAIN, {})
+
+    # Nous n'utilisons plus cette fonction pour la configuration car tout passe par l'UI (flux de configuration).
     return True
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

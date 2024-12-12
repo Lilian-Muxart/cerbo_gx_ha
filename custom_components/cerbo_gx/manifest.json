@@ -1,9 +1,10 @@
 {
   "domain": "cerbo_gx",
   "name": "Cerbo GX",
-  "documentation": "https://www.example.com/cerbo-gx",
-  "dependencies": ["mqtt"],
-  "codeowners": ["@votre_utilisateur"],
-  "version": "1.0.0",
-  "requirements": ["paho-mqtt"]
+  "documentation": "https://www.home-assistant.io/integrations/cerbo_gx",
+  "dependencies": [],
+  "codeowners": ["@ton_nom"],
+  "requirements": [],
+  "config_flow": true,
+  "iot_class": "local_polling"
 }
