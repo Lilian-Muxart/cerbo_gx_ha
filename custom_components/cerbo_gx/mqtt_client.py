@@ -1,6 +1,7 @@
 import paho.mqtt.client as mqtt
 import asyncio
 import logging
+import ssl
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -17,10 +18,27 @@ class CerboMQTTClient:
         self.client.on_disconnect = self.on_disconnect
         self.client.on_message = self.on_message
 
+    def _get_vrm_broker_url(self):
+        """Calculer l'URL du serveur MQTT basé sur l'ID du site."""
+        sum = 0
+        for character in self.id_site.lower().strip():
+            sum += ord(character)
+        broker_index = sum % 128
+        return f"mqtt{broker_index}.victronenergy.com"
+
     async def connect(self):
-        """Se connecter au serveur MQTT."""
+        """Se connecter au serveur MQTT avec l'URL dynamique et activer TLS sur le port 8883."""
+        broker_url = self._get_vrm_broker_url()
+        _LOGGER.info("Tentative de connexion sécurisée au serveur MQTT: %s", broker_url)
+
+        # Spécifier le fichier de certificat CA
+        ca_cert_path = "venus-ca.crt"  # Chemin vers le certificat CA
+
+        # Configurer la connexion TLS
+        self.client.tls_set(ca_certs=ca_cert_path, tls_version=ssl.PROTOCOL_TLSv1_2)
+
         loop = asyncio.get_event_loop()
-        await loop.run_in_executor(None, self.client.connect, "mqtt.server.com", 1883, 60)
+        await loop.run_in_executor(None, self.client.connect, broker_url, 8883, 60)
         await loop.run_in_executor(None, self.client.loop_start)
 
     async def disconnect(self):
