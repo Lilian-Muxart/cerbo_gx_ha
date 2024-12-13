@@ -1,82 +1,75 @@
-import logging
-from homeassistant import config_entries
-from homeassistant.core import HomeAssistant
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from .mqtt_client import CerboMQTTClient
-from . import DOMAIN
-
-_LOGGER = logging.getLogger(__name__)
 
 class CerboGXConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """Gère le flux de configuration de l'intégration Cerbo GX."""
-
-    def __init__(self):
-        """Initialise le flux de configuration."""
-        self.device_name = None
-        self.cerbo_id = None
-        self.username = None
-        self.password = None
-        self.mqtt_client = None
+    """Gérer un flux de configuration pour Cerbo GX."""
 
     async def async_step_user(self, user_input=None):
-        """Gère le premier pas du flux de configuration."""
-
-        if user_input is not None:
-            self.device_name = user_input["device_name"]
-            self.cerbo_id = user_input["cerbo_id"]
-            self.username = user_input["username"]
-            self.password = user_input["password"]
-
-            # Initialiser la session HTTP pour la récupération du serveur MQTT
-            session = async_get_clientsession(self.hass)
-
-            # Initialisation du client MQTT avec les données de configuration
-            self.mqtt_client = CerboMQTTClient(
-                device_name=self.device_name,
-                id_site=self.cerbo_id,
-                username=self.username,
-                password=self.password,
-                session=session
+        """Gérer la première étape de l'ajout de l'intégration."""
+        if user_input is None:
+            # Première étape : Demander à l'utilisateur le nom de l'appareil et l'ID du site
+            return self.async_show_form(
+                step_id="user",
+                data_schema=vol.Schema({
+                    vol.Required("device_name"): cv.string,
+                    vol.Required("cerbo_id"): cv.string,
+                })
             )
 
-            try:
-                # Connexion au serveur MQTT
-                await self.mqtt_client.connect()
-                _LOGGER.info("Connexion réussie au serveur MQTT pour %s", self.device_name)
+        # Si l'utilisateur a fourni le nom et l'ID du site, passez à l'étape suivante
+        self.context["device_name"] = user_input["device_name"]
+        self.context["cerbo_id"] = user_input["cerbo_id"]
 
-                # Si la connexion fonctionne, nous enregistrons l'entrée
-                return self.async_create_entry(
-                    title=self.device_name,
-                    data={
-                        "device_name": self.device_name,
-                        "cerbo_id": self.cerbo_id,
-                        "username": self.username,
-                        "password": self.password
-                    }
-                )
-
-            except Exception as e:
-                _LOGGER.error("Échec de la connexion au serveur MQTT: %s", str(e))
-                return self.async_show_form(
-                    step_id="user",
-                    data_schema=self._get_device_info_schema(),
-                    errors={"base": "mqtt_connection_error"}
-                )
-
-        # Si l'utilisateur n'a pas encore saisi de données, afficher le formulaire
         return self.async_show_form(
-            step_id="user",
-            data_schema=self._get_device_info_schema()
+            step_id="credentials",
+            data_schema=vol.Schema({
+                vol.Required("username"): cv.string,
+                vol.Required("password"): cv.string,
+            }),
+            description_placeholders={"device_name": self.context["device_name"], "cerbo_id": self.context["cerbo_id"]}
         )
 
-    def _get_device_info_schema(self):
-        """Retourne le schéma pour la saisie des informations de configuration de l'appareil."""
-        from homeassistant.helpers import config_validation as cv
-        import voluptuous as vol
+    async def async_step_credentials(self, user_input):
+        """Gérer l'étape où l'utilisateur entre ses informations de connexion."""
+        device_name = self.context["device_name"]
+        cerbo_id = self.context["cerbo_id"]
+        username = user_input["username"]
+        password = user_input["password"]
 
-        return vol.Schema({
-            vol.Required("device_name"): str,
-            vol.Required("cerbo_id"): str,
-            vol.Required("username"): str,
-            vol.Required("password"): str,
-        })
+        # Tenter de se connecter au serveur MQTT
+        try:
+            # Initialiser le client MQTT
+            mqtt_client = CerboMQTTClient(
+                device_name=device_name,
+                id_site=cerbo_id,
+                username=username,
+                password=password,
+                session=None  # Pas besoin d'une session HTTP dans ce contexte
+            )
+
+            # Essayer la connexion
+            await mqtt_client.connect()
+
+            # Déconnexion propre après validation
+            await mqtt_client.disconnect()
+
+            # Si la connexion réussit, créer l'entrée de configuration
+            return self.async_create_entry(
+                title=device_name,
+                data={
+                    "device_name": device_name,
+                    "cerbo_id": cerbo_id,
+                    "username": username,
+                    "password": password,
+                }
+            )
+        except Exception as e:
+            _LOGGER.error("Erreur de connexion au serveur MQTT : %s", str(e))
+            # Retourner le formulaire avec une erreur
+            return self.async_show_form(
+                step_id="credentials",
+                data_schema=vol.Schema({
+                    vol.Required("username"): cv.string,
+                    vol.Required("password"): cv.string,
+                }),
+                errors={"base": "cannot_connect"}
+            )
