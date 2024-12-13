@@ -27,7 +27,6 @@ async def async_setup_entry(hass: HomeAssistantType, entry, async_add_entities) 
 
     _LOGGER.info("Capteurs ajoutés pour %s", device_name)
 
-
 class CerboBatterySensor(SensorEntity):
     """Capteur pour la batterie du Cerbo GX."""
 
@@ -39,7 +38,6 @@ class CerboBatterySensor(SensorEntity):
         self._device_class = SensorDeviceClass.BATTERY
         self._unit_of_measurement = "%"
         self._state_topic = f"N/{id_site}/system/0/Batteries"
-        self._last_message = None  # Variable pour stocker le dernier message reçu
         _LOGGER.debug("Capteur de batterie initialisé pour %s avec topic %s", device_name, self._state_topic)
 
     @property
@@ -67,13 +65,14 @@ class CerboBatterySensor(SensorEntity):
         """Retourner l'unité de mesure."""
         return self._unit_of_measurement
 
-    async def async_update(self):
-        """Mettre à jour l'état du capteur avec les données MQTT."""
-        if self._last_message is not None:
+    def on_message(self, client, userdata, msg):
+        """Gérer la réception de messages MQTT pour la batterie."""
+        _LOGGER.debug("Message reçu sur le topic : %s", msg.topic)
+
+        if msg.topic == self._state_topic:
             try:
-                # Décoder le message JSON stocké
-                payload = self._last_message
-                _LOGGER.debug("Payload pour mise à jour de la batterie : %s", payload)
+                payload = json.loads(msg.payload.decode())
+                _LOGGER.debug("Payload reçu pour la batterie : %s", payload)
 
                 # Vérifier que 'value' est une liste et qu'elle contient un élément
                 if isinstance(payload, dict) and 'value' in payload:
@@ -85,32 +84,11 @@ class CerboBatterySensor(SensorEntity):
                         _LOGGER.warning("Clé 'soc' manquante ou mauvaise structure des données de batterie.")
                 else:
                     _LOGGER.warning("Le message ne contient pas de clé 'value' ou structure invalide.")
-                
                 # Mettre à jour l'état du capteur dans Home Assistant
                 self.schedule_update_ha_state()
 
-            except Exception as e:
-                _LOGGER.error("Erreur lors de la mise à jour de l'état de la batterie : %s", e)
-
-    def on_message(self, client, userdata, msg):
-        """Recevoir les messages MQTT et stocker les données pour la mise à jour."""
-        _LOGGER.debug("Message reçu sur le topic : %s", msg.topic)
-
-        # Vérifie si le message provient du bon topic
-        if msg.topic == self._state_topic:
-            try:
-                # Décoder le message JSON
-                payload = json.loads(msg.payload.decode())
-                _LOGGER.debug("Payload reçu pour la batterie : %s", payload)
-
-                # Sauvegarder le message reçu pour une mise à jour ultérieure
-                self._last_message = payload
-
             except json.JSONDecodeError:
                 _LOGGER.error("Erreur de décodage JSON pour le message de batterie : %s", msg.payload)
-            except KeyError as e:
-                _LOGGER.error("Clé manquante dans les données de batterie : %s", e)
-
 
 class CerboVoltageSensor(SensorEntity):
     """Capteur pour la tension du Cerbo GX."""
@@ -150,11 +128,6 @@ class CerboVoltageSensor(SensorEntity):
         """Retourner l'unité de mesure."""
         return self._unit_of_measurement
 
-    async def async_update(self):
-        """Mettre à jour l'état du capteur avec les données MQTT."""
-        _LOGGER.debug("Demande de mise à jour du capteur de tension %s", self._name)
-        pass
-
     def on_message(self, client, userdata, msg):
         """Gérer la réception de messages MQTT pour la tension."""
         _LOGGER.debug("Message reçu sur le topic %s", msg.topic)
@@ -170,14 +143,10 @@ class CerboVoltageSensor(SensorEntity):
                     _LOGGER.info("Tension mise à jour : %s V", self._state)
                 else:
                     _LOGGER.warning("Clé 'voltage' manquante dans le payload de tension.")
-
                 # Mettre à jour l'état dans Home Assistant
                 self.schedule_update_ha_state()
             except json.JSONDecodeError:
                 _LOGGER.error("Erreur de décodage JSON pour le message de tension : %s", msg.payload)
-            except KeyError as e:
-                _LOGGER.error("Clé manquante dans les données de tension : %s", e)
-
 
 class CerboTemperatureSensor(SensorEntity):
     """Capteur pour la température du Cerbo GX."""
@@ -217,11 +186,6 @@ class CerboTemperatureSensor(SensorEntity):
         """Retourner l'unité de mesure."""
         return self._unit_of_measurement
 
-    async def async_update(self):
-        """Mettre à jour l'état du capteur avec les données MQTT."""
-        _LOGGER.debug("Demande de mise à jour du capteur de température %s", self._name)
-        pass
-
     def on_message(self, client, userdata, msg):
         """Gérer la réception de messages MQTT pour la température."""
         _LOGGER.debug("Message reçu sur le topic %s", msg.topic)
@@ -237,10 +201,7 @@ class CerboTemperatureSensor(SensorEntity):
                     _LOGGER.info("Température mise à jour : %s °C", self._state)
                 else:
                     _LOGGER.warning("Clé 'temperature' manquante dans le payload de température.")
-
                 # Mettre à jour l'état dans Home Assistant
                 self.schedule_update_ha_state()
             except json.JSONDecodeError:
                 _LOGGER.error("Erreur de décodage JSON pour le message de température : %s", msg.payload)
-            except KeyError as e:
-                _LOGGER.error("Clé manquante dans les données de température : %s", e)

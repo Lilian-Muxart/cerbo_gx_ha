@@ -7,12 +7,13 @@ import os
 _LOGGER = logging.getLogger(__name__)
 
 class CerboMQTTClient:
-    def __init__(self, device_name, id_site, username, password, session):
+    def __init__(self, device_name, id_site, username, password, session, sensors):
         self.device_name = device_name
         self.id_site = id_site
         self.username = username
         self.password = password
         self.session = session
+        self.sensors = sensors  # Liste des capteurs
         self.client = mqtt.Client(client_id=f"cerbo_{id_site}")
         self.client.username_pw_set(username, password)
         self.client.on_connect = self.on_connect
@@ -73,6 +74,23 @@ class CerboMQTTClient:
 
     def on_message(self, client, userdata, msg):
         """Gérer la réception de messages MQTT."""
-        # Exemple de traitement des messages, à personnaliser selon l'application
         _LOGGER.debug(f"Message reçu sur le topic {msg.topic}: {msg.payload.decode()}")
-        # Traiter le message ici
+        
+        # Diffuser le message aux capteurs en fonction du topic
+        if msg.topic.startswith(f"N/{self.id_site}/system/0/"):
+            sensor_topic = msg.topic[len(f"N/{self.id_site}/system/0/"):]
+
+            # Mettre à jour l'état du capteur approprié
+            for sensor in self.sensors:
+                if sensor.is_matching_topic(sensor_topic):
+                    sensor.on_message(client, userdata, msg)
+                    break
+
+    def set_sensor_state(self, sensor_name, state):
+        """Mettre à jour l'état d'un capteur."""
+        for sensor in self.sensors:
+            if sensor.name == sensor_name:
+                sensor.state = state
+                _LOGGER.info(f"État du capteur {sensor_name} mis à jour à {state}")
+                sensor.schedule_update_ha_state()
+                break
