@@ -1,0 +1,6 @@
+DOMAIN = "my_integration"
+CONF_DEVICE_NAME = "device_name"
+CONF_DEVICE_ID = "device_id"
+CONF_EMAIL = "email"
+CONF_PASSWORD = "password"
+CONF_ROOM = "room"
