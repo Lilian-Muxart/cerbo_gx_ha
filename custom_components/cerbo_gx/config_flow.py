@@ -1,9 +1,8 @@
 from homeassistant import config_entries
-from homeassistant.core import HomeAssistant
+from homeassistant.helpers import area_registry
 import voluptuous as vol
 from homeassistant.helpers import config_validation as cv
-from homeassistant.helpers import area_registry
-from . import DOMAIN
+from .const import DOMAIN, CONF_DEVICE_NAME, CONF_CERBO_ID, CONF_ROOM, CONF_USERNAME, CONF_PASSWORD
 
 class CerboGXConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Gérer un flux de configuration pour Cerbo GX."""
@@ -20,9 +19,9 @@ class CerboGXConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
             # Créer un schéma de validation avec les pièces disponibles
             data_schema = vol.Schema({
-                vol.Required("device_name"): cv.string,
-                vol.Required("cerbo_id"): cv.string,
-                vol.Required("room"): vol.In(areas),  # Utiliser les zones dans un menu déroulant
+                vol.Required(CONF_DEVICE_NAME): cv.string,
+                vol.Required(CONF_CERBO_ID): cv.string,
+                vol.Required(CONF_ROOM): vol.In(areas),  # Utiliser les zones dans un menu déroulant
             })
 
             return self.async_show_form(
@@ -31,9 +30,9 @@ class CerboGXConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             )
 
         # Stocker les informations pour l'étape suivante
-        self.context["device_name"] = user_input["device_name"]
-        self.context["cerbo_id"] = user_input["cerbo_id"]
-        self.context["room"] = user_input["room"]
+        self.context[CONF_DEVICE_NAME] = user_input[CONF_DEVICE_NAME]
+        self.context[CONF_CERBO_ID] = user_input[CONF_CERBO_ID]
+        self.context[CONF_ROOM] = user_input[CONF_ROOM]
 
         # Passer à l'étape suivante
         return await self.async_step_credentials()
@@ -45,32 +44,32 @@ class CerboGXConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return self.async_show_form(
                 step_id="credentials",
                 data_schema=vol.Schema({
-                    vol.Required("username"): cv.string,
-                    vol.Required("password"): cv.string,
+                    vol.Required(CONF_USERNAME): cv.string,
+                    vol.Required(CONF_PASSWORD): cv.string,
                 }),
                 description_placeholders={
-                    "device_name": self.context.get("device_name"),
-                    "cerbo_id": self.context.get("cerbo_id"),
-                    "room": self.context.get("room"),
+                    "device_name": self.context.get(CONF_DEVICE_NAME),
+                    "cerbo_id": self.context.get(CONF_CERBO_ID),
+                    "room": self.context.get(CONF_ROOM),
                 }
             )
 
         # Récupérer les informations des étapes précédentes
-        device_name = self.context.get("device_name")
-        cerbo_id = self.context.get("cerbo_id")
-        room = self.context.get("room")
-        username = user_input["username"]
-        password = user_input["password"]
+        device_name = self.context.get(CONF_DEVICE_NAME)
+        cerbo_id = self.context.get(CONF_CERBO_ID)
+        room = self.context.get(CONF_ROOM)
+        username = user_input[CONF_USERNAME]
+        password = user_input[CONF_PASSWORD]
 
         # Créer une nouvelle entrée de configuration
         entry = self.async_create_entry(
             title=device_name,
             data={
-                "device_name": device_name,
-                "cerbo_id": cerbo_id,
-                "room": room,
-                "username": username,
-                "password": password,
+                CONF_DEVICE_NAME: device_name,
+                CONF_CERBO_ID: cerbo_id,
+                CONF_ROOM: room,
+                CONF_USERNAME: username,
+                CONF_PASSWORD: password,
             }
         )
 
@@ -79,7 +78,6 @@ class CerboGXConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         area = area_reg.async_get_area_by_name(room)
         if area:
             # Si la pièce existe, associer l'appareil à cette zone
-            # Créer un dictionnaire avec les nouvelles données à mettre à jour
             updated_data = {**entry.data, "room_id": area.id}
             
             # Mise à jour de l'entrée avec les nouvelles données

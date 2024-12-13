@@ -7,17 +7,16 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.components import mqtt
 from homeassistant.const import Platform
 from .mqtt_client import CerboMQTTClient
+from homeassistant.helpers.event import async_track_time_interval
 
 DOMAIN = "cerbo_gx"
 PLATFORMS = [Platform.SENSOR]
 _LOGGER = logging.getLogger(__name__)
 
-
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Configurer l'intégration Cerbo GX."""
     hass.data.setdefault(DOMAIN, {})
     return True
-
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Configurer une entrée de configuration pour Cerbo GX."""
@@ -55,11 +54,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Configurer les entités associées via la plateforme "sensor"
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
-    # Lancer une tâche d'envoi périodique de données si nécessaire
-    hass.async_create_task(publish_data_periodically(mqtt_client, id_site))
+    # Utiliser async_track_time_interval pour envoyer des données périodiquement
+    async_track_time_interval(
+        hass, 
+        lambda now: asyncio.create_task(publish_data_periodically(mqtt_client, id_site)),
+        30  # toutes les 30 secondes
+    )
 
     return True
-
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Décharger une entrée de configuration."""
@@ -75,20 +77,14 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     return True
 
-
 async def publish_data_periodically(mqtt_client, id_site: str):
     """Publier périodiquement des messages sur le serveur MQTT."""
-    while True:
-        try:
-            # Envoyer un ping ou autres données si nécessaire
-            ping_topic = f"R/{id_site}/system/0/Serial"
-            ping_payload = ""
-            _LOGGER.debug("Envoi du ping sur le topic %s", ping_topic)
-            mqtt_client.client.publish(ping_topic, ping_payload)
+    try:
+        # Envoyer un ping ou autres données si nécessaire
+        ping_topic = f"R/{id_site}/system/0/Serial"
+        ping_payload = ""
+        _LOGGER.debug("Envoi du ping sur le topic %s", ping_topic)
+        mqtt_client.client.publish(ping_topic, ping_payload)
 
-            # Attendre 30 secondes avant le prochain envoi
-            await asyncio.sleep(30)
-
-        except Exception as e:
-            _LOGGER.error("Erreur lors de la publication des données: %s", str(e))
-            await asyncio.sleep(30)
+    except Exception as e:
+        _LOGGER.error("Erreur lors de la publication des données: %s", str(e))

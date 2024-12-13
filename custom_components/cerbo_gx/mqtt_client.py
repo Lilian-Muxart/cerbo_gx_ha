@@ -18,6 +18,7 @@ class CerboMQTTClient:
         self.client.on_connect = self.on_connect
         self.client.on_disconnect = self.on_disconnect
         self.client.on_message = self.on_message
+        self.is_connected = False
 
     def _get_vrm_broker_url(self):
         """Calculer l'URL du serveur MQTT basé sur l'ID du site."""
@@ -44,26 +45,40 @@ class CerboMQTTClient:
         
         # Démarrer la boucle MQTT dans un thread séparé
         await asyncio.to_thread(self.client.loop_start)
+        
+        # Vérifier la connexion
+        await asyncio.sleep(2)
+        if not self.is_connected:
+            _LOGGER.error("Impossible de se connecter au serveur MQTT.")
+            raise ConnectionError("Échec de la connexion au serveur MQTT.")
 
     async def disconnect(self):
         """Déconnexion propre du serveur MQTT."""
-        loop = asyncio.get_event_loop()
-        await asyncio.to_thread(self.client.disconnect)
+        if self.is_connected:
+            _LOGGER.info("Déconnexion propre du serveur MQTT.")
+            loop = asyncio.get_event_loop()
+            await asyncio.to_thread(self.client.disconnect)
 
     def on_connect(self, client, userdata, flags, rc):
         """Gérer la connexion réussie."""
         if rc == 0:
             _LOGGER.info("Connecté au serveur MQTT avec succès.")
+            self.is_connected = True
             # Abonnement à tous les topics nécessaires
             self.client.subscribe(f"N/{self.id_site}/system/0/#")
         else:
             _LOGGER.error("Erreur de connexion MQTT avec code de retour %d", rc)
+            self.is_connected = False
 
     def on_disconnect(self, client, userdata, rc):
         """Gérer la déconnexion."""
+        self.is_connected = False
         if rc != 0:
             _LOGGER.warning("Déconnexion imprévue du serveur MQTT, code %d", rc)
 
     def on_message(self, client, userdata, msg):
         """Gérer la réception de messages MQTT."""
         _LOGGER.debug("Message reçu sur le topic %s: %s", msg.topic, msg.payload.decode())
+        
+        # Ajouter ici une logique pour traiter les messages reçus et prendre des actions
+        # Par exemple : publier un état ou modifier une entité dans Home Assistant.

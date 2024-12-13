@@ -23,6 +23,12 @@ async def async_setup_entry(hass: HomeAssistantType, entry, async_add_entities) 
     # Ajouter les capteurs
     async_add_entities(sensors, update_before_add=True)
 
+    # Abonnement aux topics MQTT (assure-toi que ton client MQTT est prêt et disponible)
+    mqtt_client = hass.data[DOMAIN][entry.entry_id].get("mqtt_client")
+    if mqtt_client:
+        for sensor in sensors:
+            mqtt_client.client.subscribe(sensor._state_topic)
+            _LOGGER.info(f"S'abonne au topic: {sensor._state_topic}")
 
 class CerboBatterySensor(SensorEntity):
     """Capteur pour la batterie du Cerbo GX."""
@@ -60,11 +66,6 @@ class CerboBatterySensor(SensorEntity):
     def unit_of_measurement(self):
         """Retourner l'unité de mesure."""
         return self._unit_of_measurement
-
-    async def async_update(self):
-        """Mettre à jour l'état du capteur avec les données MQTT."""
-        # Nous n'utilisons plus cette méthode pour récupérer les données
-        pass
 
     def on_message(self, client, userdata, msg):
         """Gérer la réception de messages MQTT pour la batterie."""
@@ -116,11 +117,6 @@ class CerboVoltageSensor(SensorEntity):
         """Retourner l'unité de mesure."""
         return self._unit_of_measurement
 
-    async def async_update(self):
-        """Mettre à jour l'état du capteur avec les données MQTT."""
-        # Nous n'utilisons plus cette méthode pour récupérer les données
-        pass
-
     def on_message(self, client, userdata, msg):
         """Gérer la réception de messages MQTT pour la tension."""
         if msg.topic == self._state_topic:
@@ -170,11 +166,6 @@ class CerboTemperatureSensor(SensorEntity):
     def unit_of_measurement(self):
         """Retourner l'unité de mesure."""
         return self._unit_of_measurement
-
-    async def async_update(self):
-        """Mettre à jour l'état du capteur avec les données MQTT."""
-        # Nous n'utilisons plus cette méthode pour récupérer les données
-        pass
 
     def on_message(self, client, userdata, msg):
         """Gérer la réception de messages MQTT pour la température."""
