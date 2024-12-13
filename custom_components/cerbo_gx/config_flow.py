@@ -3,6 +3,7 @@ from homeassistant.core import HomeAssistant
 import voluptuous as vol
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import area_registry
+from homeassistant.components.area_registry import AreaRegistry
 from . import DOMAIN
 
 class CerboGXConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -59,6 +60,14 @@ class CerboGXConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         username = user_input["username"]
         password = user_input["password"]
 
+        # Trouver l'ID de la zone à partir du nom de la pièce
+        area_reg = area_registry.async_get(self.hass)
+        area_id = None
+        for area in area_reg.async_list_areas():
+            if area.name == room:
+                area_id = area.id
+                break
+
         # Enregistrer directement l'entrée sans tentative de connexion
         return self.async_create_entry(
             title=device_name,
@@ -68,5 +77,6 @@ class CerboGXConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 "room": room,
                 "username": username,
                 "password": password,
+                "area_id": area_id,  # Associer l'appareil à la zone
             }
         )
