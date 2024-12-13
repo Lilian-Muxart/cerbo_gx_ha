@@ -15,6 +15,9 @@ class CerboGXConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             area_reg = area_registry.async_get(self.hass)
             areas = [area.name for area in area_reg.async_list_areas()]
 
+            if not areas:
+                return self.async_abort(reason="no_areas")  # Si aucune zone n'est disponible
+
             # Créer un schéma de validation avec les pièces disponibles
             data_schema = vol.Schema({
                 vol.Required("device_name"): cv.string,
@@ -60,7 +63,7 @@ class CerboGXConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         password = user_input["password"]
 
         # Enregistrer directement l'entrée sans tentative de connexion
-        return self.async_create_entry(
+        entry = self.async_create_entry(
             title=device_name,
             data={
                 "device_name": device_name,
@@ -70,3 +73,16 @@ class CerboGXConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 "password": password,
             }
         )
+
+        # Lier l'appareil à la pièce (zone)
+        area_reg = area_registry.async_get(self.hass)
+        area = area_reg.async_get_area_by_name(room)
+        if area:
+            # Si la pièce existe, associer l'appareil à cette zone
+            self.hass.config_entries.async_update_entry(
+                entry,
+                data={**entry.data, "room_id": area.id}
+            )
+
+        return entry
+
