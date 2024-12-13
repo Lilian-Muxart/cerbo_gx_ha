@@ -13,8 +13,8 @@ class CerboGXConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Gérer la première étape de l'ajout de l'intégration."""
         if user_input is None:
             # Récupérer la liste des pièces depuis le registre des zones
-            area_reg = area_registry.async_get(self.hass)
-            areas = [area.name for area in area_reg.async_list_areas()]
+            area_reg = await self.hass.helpers.area_registry.async_get_registry()
+            areas = [area.name for area in area_reg.areas]
 
             # Créer un schéma de validation avec les pièces disponibles
             data_schema = vol.Schema({
@@ -63,9 +63,9 @@ class CerboGXConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         # Trouver l'ID de la zone à partir du nom de la pièce
         area_id = None
         if room:
-            area_reg = area_registry.async_get(self.hass)
+            area_reg = await self.hass.helpers.area_registry.async_get_registry()
             area_id = next(
-                (area.id for area in area_reg.async_list_areas() if area.name == room), None
+                (area.id for area in area_reg.areas if area.name == room), None
             )
 
         # Enregistrer directement l'entrée sans tentative de connexion

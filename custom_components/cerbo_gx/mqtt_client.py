@@ -84,5 +84,3 @@ class CerboMQTTClient:
         
         # Ajouter ici une logique pour traiter les messages reçus et prendre des actions
         # Par exemple : publier un état ou modifier une entité dans Home Assistant.
-
-    
