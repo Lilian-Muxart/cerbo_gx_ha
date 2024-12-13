@@ -3,7 +3,7 @@ import json
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.typing import HomeAssistantType
-from homeassistant.const import DEVICE_CLASS_BATTERY, DEVICE_CLASS_VOLTAGE, DEVICE_CLASS_TEMPERATURE
+from homeassistant.helpers.entity import SensorDeviceClass  # Remplace l'import
 from . import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
@@ -32,7 +32,7 @@ class CerboBatterySensor(SensorEntity):
         self._name = f"{device_name} Battery Percent"
         self._unique_id = f"{device_name}_battery_percent"
         self._state = None
-        self._device_class = DEVICE_CLASS_BATTERY
+        self._device_class = SensorDeviceClass.BATTERY  # Remplace DEVICE_CLASS_BATTERY par SensorDeviceClass.BATTERY
         self._unit_of_measurement = "%"
         self._state_topic = f"N/{id_site}/system/0/Batteries"
 
@@ -87,7 +87,7 @@ class CerboVoltageSensor(SensorEntity):
         self._name = f"{device_name} Voltage"
         self._unique_id = f"{device_name}_voltage"
         self._state = None
-        self._device_class = DEVICE_CLASS_VOLTAGE
+        self._device_class = SensorDeviceClass.VOLTAGE  # Remplace DEVICE_CLASS_VOLTAGE par SensorDeviceClass.VOLTAGE
         self._unit_of_measurement = "V"
         self._state_topic = f"N/{id_site}/system/0/Voltage"
 
@@ -142,7 +142,7 @@ class CerboTemperatureSensor(SensorEntity):
         self._name = f"{device_name} Temperature"
         self._unique_id = f"{device_name}_temperature"
         self._state = None
-        self._device_class = DEVICE_CLASS_TEMPERATURE
+        self._device_class = SensorDeviceClass.TEMPERATURE  # Remplace DEVICE_CLASS_TEMPERATURE par SensorDeviceClass.TEMPERATURE
         self._unit_of_measurement = "°C"
         self._state_topic = f"N/{id_site}/system/0/Temperature"
 
