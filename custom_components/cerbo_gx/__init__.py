@@ -7,7 +7,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.components import mqtt
 from homeassistant.const import Platform
 from .mqtt_client import CerboMQTTClient
-from homeassistant.helpers.entity_registry import async_get
+from homeassistant.helpers import entity_registry as er  # Nouveau module pour le registre des entités
 
 DOMAIN = "cerbo_gx"
 PLATFORMS = [Platform.SENSOR]
@@ -54,7 +54,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # Associer l'appareil à une pièce si elle est spécifiée
     if room_name:
-        entity_registry = async_get(hass)
+        entity_registry = er.async_get(hass)  # Mise à jour pour le registre des entités
         # Assurez-vous que l'ID de l'entité est bien formé
         device_entity_id = f"{DOMAIN}.{device_name.lower()}_sensor"
         _LOGGER.info("Association de l'appareil '%s' à la pièce '%s'", device_entity_id, room_name)
@@ -62,6 +62,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             device_entity_id,
             area_id=room_name,
         )
+
     # Configurer les entités associées via la plateforme "sensor"
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 

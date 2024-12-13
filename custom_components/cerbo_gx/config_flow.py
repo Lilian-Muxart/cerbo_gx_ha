@@ -2,7 +2,7 @@ from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
 import voluptuous as vol
 from homeassistant.helpers import config_validation as cv
-from homeassistant.helpers.area_registry import async_get as async_get_area_registry
+from homeassistant.helpers import area_registry
 from . import DOMAIN
 
 
@@ -13,7 +13,7 @@ class CerboGXConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Gérer la première étape de l'ajout de l'intégration."""
         if user_input is None:
             # Récupérer la liste des pièces depuis le registre des zones
-            area_reg = await async_get_area_registry(self.hass)
+            area_reg = area_registry.async_get(self.hass)
             areas = [area.name for area in area_reg.async_list_areas()]
 
             # Créer un schéma de validation avec les pièces disponibles
@@ -63,7 +63,7 @@ class CerboGXConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         # Trouver l'ID de la zone à partir du nom de la pièce
         area_id = None
         if room:
-            area_reg = await async_get_area_registry(self.hass)
+            area_reg = area_registry.async_get(self.hass)
             area_id = next(
                 (area.id for area in area_reg.async_list_areas() if area.name == room), None
             )
