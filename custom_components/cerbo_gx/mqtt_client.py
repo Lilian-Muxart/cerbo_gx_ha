@@ -78,6 +78,9 @@ class CerboMQTTClient:
         if rc != 0:
             _LOGGER.warning("Déconnexion imprévue du serveur MQTT, code %d", rc)
 
+    def on_message(self, client, userdata, msg):
+        """Gérer la réception de messages MQTT."""
+        _LOGGER.debug("Message reçu sur le topic %s: %s", msg.topic, msg.payload.decode())
         
         # Ajouter ici une logique pour traiter les messages reçus et prendre des actions
         # Par exemple : publier un état ou modifier une entité dans Home Assistant.
