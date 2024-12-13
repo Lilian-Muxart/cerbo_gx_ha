@@ -22,9 +22,7 @@ class CerboMQTTClient:
 
     def _get_vrm_broker_url(self):
         """Calculer l'URL du serveur MQTT basé sur l'ID du site."""
-        sum = 0
-        for character in self.id_site.lower().strip():
-            sum += ord(character)
+        sum = sum(ord(character) for character in self.id_site.lower().strip())
         broker_index = sum % 128
         return f"mqtt{broker_index}.victronenergy.com"
 
@@ -39,14 +37,13 @@ class CerboMQTTClient:
         # Configurer la connexion TLS de manière non-bloquante
         await asyncio.to_thread(self.client.tls_set, ca_certs=ca_cert_path, tls_version=ssl.PROTOCOL_TLSv1_2)
 
-        # Connecter au broker de manière non-bloquante
-        loop = asyncio.get_event_loop()
-        await asyncio.to_thread(self.client.connect, broker_url, 8883, 60)
+        # Connecter au broker de manière non-bloquante et démarrer la boucle MQTT
+        await asyncio.gather(
+            asyncio.to_thread(self.client.connect, broker_url, 8883, 60),
+            asyncio.to_thread(self.client.loop_start)
+        )
 
-        # Démarrer la boucle MQTT dans un thread séparé
-        await asyncio.to_thread(self.client.loop_start)
-        
-        # Vérifier la connexion
+        # Vérifier la connexion après un délai court
         await asyncio.sleep(2)
         if not self.is_connected:
             _LOGGER.error("Impossible de se connecter au serveur MQTT.")
@@ -54,11 +51,8 @@ class CerboMQTTClient:
 
     async def disconnect(self):
         """Déconnexion propre du serveur MQTT."""
-        loop = asyncio.get_event_loop()
-        await asyncio.to_thread(self.client.disconnect)
         if self.is_connected:
             _LOGGER.info("Déconnexion propre du serveur MQTT.")
-            loop = asyncio.get_event_loop()
             await asyncio.to_thread(self.client.disconnect)
 
     def on_connect(self, client, userdata, flags, rc):
@@ -66,7 +60,6 @@ class CerboMQTTClient:
         if rc == 0:
             _LOGGER.info("Connecté au serveur MQTT avec succès.")
             self.is_connected = True
-            # Abonnement à tous les topics nécessaires
             self.client.subscribe(f"N/{self.id_site}/system/0/#")
         else:
             _LOGGER.error("Erreur de connexion MQTT avec code de retour %d", rc)
@@ -80,7 +73,6 @@ class CerboMQTTClient:
 
     def on_message(self, client, userdata, msg):
         """Gérer la réception de messages MQTT."""
-        _LOGGER.debug("Message reçu sur le topic %s: %s", msg.topic, msg.payload.decode())
-        
-        # Ajouter ici une logique pour traiter les messages reçus et prendre des actions
-        # Par exemple : publier un état ou modifier une entité dans Home Assistant.
+        # Exemple de traitement des messages, à personnaliser selon l'application
+        _LOGGER.debug(f"Message reçu sur le topic {msg.topic}: {msg.payload.decode()}")
+        # Traiter le message ici

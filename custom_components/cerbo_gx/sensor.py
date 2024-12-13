@@ -39,6 +39,7 @@ class CerboBatterySensor(SensorEntity):
         self._device_class = SensorDeviceClass.BATTERY
         self._unit_of_measurement = "%"
         self._state_topic = f"N/{id_site}/system/0/Batteries"
+        self._last_message = None  # Variable pour stocker le dernier message reçu
         _LOGGER.debug("Capteur de batterie initialisé pour %s avec topic %s", device_name, self._state_topic)
 
     @property
@@ -68,19 +69,11 @@ class CerboBatterySensor(SensorEntity):
 
     async def async_update(self):
         """Mettre à jour l'état du capteur avec les données MQTT."""
-        _LOGGER.debug("Demande de mise à jour du capteur de batterie %s", self._name)
-        pass
-
-    def on_message(self, client, userdata, msg):
-        """Gérer la réception de messages MQTT pour la batterie."""
-        _LOGGER.debug("Message reçu sur le topic : %s", msg.topic)
-
-        # Vérifie si le message provient du bon topic
-        if msg.topic == self._state_topic:
+        if self._last_message is not None:
             try:
-                # Décoder le message JSON
-                payload = json.loads(msg.payload.decode())
-                _LOGGER.debug("Payload reçu : %s", payload)
+                # Décoder le message JSON stocké
+                payload = self._last_message
+                _LOGGER.debug("Payload pour mise à jour de la batterie : %s", payload)
 
                 # Vérifier que 'value' est une liste et qu'elle contient un élément
                 if isinstance(payload, dict) and 'value' in payload:
@@ -92,9 +85,26 @@ class CerboBatterySensor(SensorEntity):
                         _LOGGER.warning("Clé 'soc' manquante ou mauvaise structure des données de batterie.")
                 else:
                     _LOGGER.warning("Le message ne contient pas de clé 'value' ou structure invalide.")
-
+                
                 # Mettre à jour l'état du capteur dans Home Assistant
                 self.schedule_update_ha_state()
+
+            except Exception as e:
+                _LOGGER.error("Erreur lors de la mise à jour de l'état de la batterie : %s", e)
+
+    def on_message(self, client, userdata, msg):
+        """Recevoir les messages MQTT et stocker les données pour la mise à jour."""
+        _LOGGER.debug("Message reçu sur le topic : %s", msg.topic)
+
+        # Vérifie si le message provient du bon topic
+        if msg.topic == self._state_topic:
+            try:
+                # Décoder le message JSON
+                payload = json.loads(msg.payload.decode())
+                _LOGGER.debug("Payload reçu pour la batterie : %s", payload)
+
+                # Sauvegarder le message reçu pour une mise à jour ultérieure
+                self._last_message = payload
 
             except json.JSONDecodeError:
                 _LOGGER.error("Erreur de décodage JSON pour le message de batterie : %s", msg.payload)
