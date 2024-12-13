@@ -2,9 +2,9 @@ from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
 import voluptuous as vol
 from homeassistant.helpers import config_validation as cv
-from homeassistant.helpers import area_registry
-from homeassistant.components.area_registry import AreaRegistry
+from homeassistant.helpers.area_registry import async_get as async_get_area_registry
 from . import DOMAIN
+
 
 class CerboGXConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Gérer un flux de configuration pour Cerbo GX."""
@@ -13,14 +13,14 @@ class CerboGXConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Gérer la première étape de l'ajout de l'intégration."""
         if user_input is None:
             # Récupérer la liste des pièces depuis le registre des zones
-            area_reg = area_registry.async_get(self.hass)
+            area_reg = await async_get_area_registry(self.hass)
             areas = [area.name for area in area_reg.async_list_areas()]
 
             # Créer un schéma de validation avec les pièces disponibles
             data_schema = vol.Schema({
                 vol.Required("device_name"): cv.string,
                 vol.Required("cerbo_id"): cv.string,
-                vol.Required("room"): vol.In(areas),  # Utiliser les zones dans un menu déroulant
+                vol.Optional("room", default=""): vol.In(areas),  # Menu déroulant avec les zones
             })
 
             return self.async_show_form(
@@ -31,7 +31,7 @@ class CerboGXConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         # Stocker les informations pour l'étape suivante
         self.context["device_name"] = user_input["device_name"]
         self.context["cerbo_id"] = user_input["cerbo_id"]
-        self.context["room"] = user_input["room"]
+        self.context["room"] = user_input.get("room")
 
         # Passer à l'étape suivante
         return await self.async_step_credentials()
@@ -49,7 +49,7 @@ class CerboGXConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 description_placeholders={
                     "device_name": self.context.get("device_name"),
                     "cerbo_id": self.context.get("cerbo_id"),
-                    "room": self.context.get("room"),
+                    "room": self.context.get("room") or "Non spécifiée",
                 }
             )
 
@@ -61,12 +61,13 @@ class CerboGXConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         password = user_input["password"]
 
         # Trouver l'ID de la zone à partir du nom de la pièce
-        area_reg = area_registry.async_get(self.hass)
         area_id = None
-        for area in area_reg.async_list_areas():
-            if area.name == room:
-                area_id = area.id
-                break
+        if room:
+            area_reg = await async_get_area_registry(self.hass)
+            area_id = next(
+                (area.id for area in area_reg.async_list_areas() if area.name == room), None
+            )
+
         # Enregistrer directement l'entrée sans tentative de connexion
         return self.async_create_entry(
             title=device_name,
