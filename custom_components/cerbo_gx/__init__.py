@@ -7,17 +7,16 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.components import mqtt
 from homeassistant.const import Platform
 from .mqtt_client import CerboMQTTClient
+from homeassistant.helpers.entity_registry import async_get_entity_registry
 
 DOMAIN = "cerbo_gx"
 PLATFORMS = [Platform.SENSOR]
 _LOGGER = logging.getLogger(__name__)
 
-
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Configurer l'intégration Cerbo GX."""
     hass.data.setdefault(DOMAIN, {})
     return True
-
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Configurer une entrée de configuration pour Cerbo GX."""
@@ -28,6 +27,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     id_site = entry.data["cerbo_id"]
     username = entry.data["username"]
     password = entry.data["password"]
+    room_name = entry.data.get("room_name", "")  # Optionnel : association à une pièce
 
     # Initialiser la session HTTP pour la récupération du serveur MQTT
     session = async_get_clientsession(hass)
@@ -52,6 +52,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Stocker le client MQTT dans l'intégration
     hass.data[DOMAIN][entry.entry_id]["mqtt_client"] = mqtt_client
 
+    # Associer l'appareil à une pièce si elle est spécifiée
+    if room_name:
+        entity_registry = await async_get_entity_registry(hass)
+        # Assurez-vous que l'ID de l'entité est bien formé
+        device_entity_id = f"{DOMAIN}.{device_name.lower()}_sensor"
+        _LOGGER.info("Association de l'appareil '%s' à la pièce '%s'", device_entity_id, room_name)
+        entity_registry.async_update_entity(
+            device_entity_id,
+            area_id=room_name,
+        )
+
     # Configurer les entités associées via la plateforme "sensor"
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
@@ -59,7 +70,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.async_create_task(publish_data_periodically(mqtt_client, id_site))
 
     return True
-
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Décharger une entrée de configuration."""
@@ -74,7 +84,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         del hass.data[DOMAIN][entry.entry_id]
 
     return True
-
 
 async def publish_data_periodically(mqtt_client, id_site: str):
     """Publier périodiquement des messages sur le serveur MQTT."""
