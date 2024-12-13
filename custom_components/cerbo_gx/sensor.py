@@ -73,22 +73,29 @@ class CerboBatterySensor(SensorEntity):
 
     def on_message(self, client, userdata, msg):
         """Gérer la réception de messages MQTT pour la batterie."""
-        _LOGGER.debug("Message reçu sur le topic %s", msg.topic)
-        
+        _LOGGER.debug("Message reçu sur le topic : %s", msg.topic)
+
+        # Vérifie si le message provient du bon topic
         if msg.topic == self._state_topic:
             try:
+                # Décoder le message JSON
                 payload = json.loads(msg.payload.decode())
-                _LOGGER.debug("Payload reçu pour la batterie : %s", payload)
+                _LOGGER.debug("Payload reçu : %s", payload)
 
-                # Extraire la valeur 'soc' (state of charge) de la batterie
-                self._state = payload.get("soc", None)
-                if self._state is not None:
-                    _LOGGER.info("État de la batterie mis à jour : %s%%", self._state)
+                # Vérifier que 'value' est une liste et qu'elle contient un élément
+                if isinstance(payload, dict) and 'value' in payload:
+                    battery_data = payload.get("value", [])[0]  # Prend le premier élément de la liste
+                    if battery_data and "soc" in battery_data:
+                        self._state = battery_data["soc"]  # Récupère le pourcentage de charge de la batterie
+                        _LOGGER.info("État de la batterie mis à jour : %s%%", self._state)
+                    else:
+                        _LOGGER.warning("Clé 'soc' manquante ou mauvaise structure des données de batterie.")
                 else:
-                    _LOGGER.warning("Clé 'soc' manquante dans le payload de batterie.")
-                
-                # Mettre à jour l'état dans Home Assistant
+                    _LOGGER.warning("Le message ne contient pas de clé 'value' ou structure invalide.")
+
+                # Mettre à jour l'état du capteur dans Home Assistant
                 self.schedule_update_ha_state()
+
             except json.JSONDecodeError:
                 _LOGGER.error("Erreur de décodage JSON pour le message de batterie : %s", msg.payload)
             except KeyError as e:
