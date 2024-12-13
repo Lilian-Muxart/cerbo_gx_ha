@@ -1,63 +1,58 @@
-import paho.mqtt.client as mqtt
-import asyncio
 import logging
-import ssl
 import os
+import ssl
+import paho.mqtt.client as mqtt
+from homeassistant.components.sensor import SensorEntity
+from homeassistant.helpers.entity import Entity
+import asyncio
 
 _LOGGER = logging.getLogger(__name__)
 
-class CerboMQTTClient:
-    def __init__(self, device_name, id_site, username, password, session):
+class VictronMqttSensor(SensorEntity):
+    """Représente un capteur MQTT pour l'intégration Victron."""
+
+    def __init__(self, device_name, broker_url, id_site):
+        """Initialiser le capteur."""
         self.device_name = device_name
+        self.broker_url = broker_url
         self.id_site = id_site
-        self.username = username
-        self.password = password
-        self.session = session
-        self.client = mqtt.Client(client_id=f"cerbo_{id_site}")
-        self.client.username_pw_set(username, password)
-        self.client.on_connect = self.on_connect
-        self.client.on_disconnect = self.on_disconnect
-        self.client.on_message = self.on_message
+        self._state = None
         self.is_connected = False
 
-    def _get_vrm_broker_url(self):
-        """Calculer l'URL du serveur MQTT basé sur l'ID du site."""
-        sum = 0
-        for character in self.id_site.lower().strip():
-            sum += ord(character)
-        broker_index = sum % 128
-        return f"mqtt{broker_index}.victronenergy.com"
+        # Charger le certificat CA à partir du même dossier que l'intégration
+        self._load_ca_certificate()
 
-    async def connect(self):
-        """Se connecter au serveur MQTT avec l'URL dynamique et activer TLS sur le port 8883."""
-        broker_url = self._get_vrm_broker_url()
-        _LOGGER.info("Tentative de connexion sécurisée au serveur MQTT: %s", broker_url)
+        # Initialiser le client MQTT
+        self._client = mqtt.Client()
 
-        # Spécifier le fichier de certificat CA
-        ca_cert_path = os.path.join(os.path.dirname(__file__), "venus-ca.crt")
+        # Configurer les callbacks MQTT
+        self._client.on_connect = self.on_connect
+        self._client.on_disconnect = self.on_disconnect
+        self._client.on_message = self.on_message
 
-        # Configurer la connexion TLS de manière non-bloquante
-        await asyncio.to_thread(self.client.tls_set, ca_certs=ca_cert_path, tls_version=ssl.PROTOCOL_TLSv1_2)
+        # Configurer la connexion SSL avec le certificat
+        self._client.tls_set(ca_certs=self.ca_cert, tls_version=ssl.PROTOCOL_TLSv1_2)
 
-        # Connecter au broker de manière non-bloquante
-        loop = asyncio.get_event_loop()
-        await asyncio.to_thread(self.client.connect, broker_url, 8883, 60)
+        # Connexion au broker MQTT
+        self._client.connect(self.broker_url)
+
+    def _load_ca_certificate(self):
+        """Charge le certificat CA venus-ca.crt depuis le dossier de l'intégration."""
+        integration_folder = os.path.dirname(__file__)  # Récupère le dossier actuel de l'intégration
+        self.ca_cert = os.path.join(integration_folder, "venus-ca.crt")  # Chemin complet vers le certificat
+
+        if not os.path.exists(self.ca_cert):
+            _LOGGER.error(f"Le certificat CA venus-ca.crt n'a pas été trouvé à {self.ca_cert}")
+            raise FileNotFoundError(f"Le certificat CA venus-ca.crt n'a pas été trouvé à {self.ca_cert}")
         
-        # Démarrer la boucle MQTT dans un thread séparé
-        await asyncio.to_thread(self.client.loop_start)
-        
-        # Vérifier la connexion
-        await asyncio.sleep(2)
-        if not self.is_connected:
-            _LOGGER.error("Impossible de se connecter au serveur MQTT.")
-            raise ConnectionError("Échec de la connexion au serveur MQTT.")
+        _LOGGER.info(f"Certificat CA trouvé à : {self.ca_cert}")
 
     async def disconnect(self):
         """Déconnexion propre du serveur MQTT."""
         if self.is_connected:
             _LOGGER.info("Déconnexion propre du serveur MQTT.")
             loop = asyncio.get_event_loop()
-            await asyncio.to_thread(self.client.disconnect)
+            await asyncio.to_thread(self._client.disconnect)
 
     def on_connect(self, client, userdata, flags, rc):
         """Gérer la connexion réussie."""
@@ -65,7 +60,7 @@ class CerboMQTTClient:
             _LOGGER.info("Connecté au serveur MQTT avec succès.")
             self.is_connected = True
             # Abonnement à tous les topics nécessaires
-            self.client.subscribe(f"N/{self.id_site}/system/0/#")
+            self._client.subscribe(f"N/{self.id_site}/system/0/#")
         else:
             _LOGGER.error("Erreur de connexion MQTT avec code de retour %d", rc)
             self.is_connected = False
@@ -79,6 +74,19 @@ class CerboMQTTClient:
     def on_message(self, client, userdata, msg):
         """Gérer la réception de messages MQTT."""
         _LOGGER.debug("Message reçu sur le topic %s: %s", msg.topic, msg.payload.decode())
-        
-        # Ajouter ici une logique pour traiter les messages reçus et prendre des actions
-        # Par exemple : publier un état ou modifier une entité dans Home Assistant.
+        self._state = msg.payload.decode()  # Mettre à jour l'état avec la charge utile du message
+        self.async_write_ha_state()  # Mettre à jour l'état de l'entité dans Home Assistant
+
+    @property
+    def name(self):
+        """Retourner le nom du capteur."""
+        return f"Victron Sensor {self.device_name}"
+
+    @property
+    def state(self):
+        """Retourner l'état du capteur."""
+        return self._state
+
+    async def async_update(self):
+        """Mettre à jour l'état du capteur."""
+        self._client.loop()  # Assurez-vous que le client MQTT est en train de recevoir des messages
