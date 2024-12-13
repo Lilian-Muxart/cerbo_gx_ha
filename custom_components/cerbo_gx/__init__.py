@@ -1,6 +1,6 @@
 import logging
 import asyncio
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant  # Utilisation correcte de HomeAssistant
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -66,8 +66,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Configurer les entités associées via la plateforme "sensor"
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
-    # Lancer une tâche d'envoi périodique de données si nécessaire
-    hass.async_create_task(publish_data_periodically(mqtt_client, id_site))
+    # Lancer la tâche d'envoi périodique de données via le client MQTT
+    hass.async_create_task(mqtt_client.publish_data_periodically())
 
     return True
 
@@ -84,20 +84,3 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         del hass.data[DOMAIN][entry.entry_id]
 
     return True
-
-async def publish_data_periodically(mqtt_client, id_site: str):
-    """Publier périodiquement des messages sur le serveur MQTT."""
-    while True:
-        try:
-            # Envoyer un ping ou autres données si nécessaire
-            ping_topic = f"R/{id_site}/system/0/Serial"
-            ping_payload = ""
-            _LOGGER.debug("Envoi du ping sur le topic %s", ping_topic)
-            mqtt_client.client.publish(ping_topic, ping_payload)
-
-            # Attendre 30 secondes avant le prochain envoi
-            await asyncio.sleep(30)
-
-        except Exception as e:
-            _LOGGER.error("Erreur lors de la publication des données: %s", str(e))
-            await asyncio.sleep(30)
