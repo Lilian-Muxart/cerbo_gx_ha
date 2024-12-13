@@ -13,13 +13,13 @@ class CerboGXConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is None:
             # Récupérer la liste des pièces depuis le registre des zones
             area_reg = area_registry.async_get(self.hass)
-            areas = [area.name for area in area_reg.async_list_areas()]  # Cette ligne est maintenant synchrone
+            areas = [area.name for area in area_reg.async_list_areas()]  # Liste synchrone des zones
 
             # Créer un schéma de validation avec les pièces disponibles
             data_schema = vol.Schema({
                 vol.Required("device_name"): cv.string,
                 vol.Required("cerbo_id"): cv.string,
-                vol.Required("room"): vol.In(areas),
+                vol.Required("room"): vol.In(areas),  # Utiliser les zones disponibles
             })
 
             return self.async_show_form(
