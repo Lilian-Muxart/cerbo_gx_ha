@@ -4,7 +4,6 @@ import voluptuous as vol
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import area_registry
 from homeassistant.components.area_registry import AreaRegistry
-from homeassistant.components.device_registry import async_get as async_get_device_registry
 from . import DOMAIN
 
 class CerboGXConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -69,8 +68,8 @@ class CerboGXConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 area_id = area.id
                 break
 
-        # Créer l'entrée de configuration
-        entry = self.async_create_entry(
+        # Enregistrer directement l'entrée sans tentative de connexion
+        return self.async_create_entry(
             title=device_name,
             data={
                 "device_name": device_name,
@@ -81,18 +80,3 @@ class CerboGXConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 "area_id": area_id,  # Associer l'appareil à la zone
             }
         )
-
-        # Enregistrer l'entrée
-        await self.async_set_unique_id(cerbo_id)
-        self._abort_if_unique_id_configured()
-
-        # Créer l'appareil dans le registre des appareils
-        device_registry = await async_get_device_registry(self.hass)
-        device_registry.async_get_or_create(
-            config_entry_id=entry.entry_id,
-            identifiers={(DOMAIN, cerbo_id)},
-            name=device_name,
-            area_id=area_id,  # Lier l'appareil à la zone
-        )
-
-        return entry
