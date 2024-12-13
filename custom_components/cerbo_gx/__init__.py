@@ -5,9 +5,12 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.components import mqtt
+from homeassistant.const import Platform
 from .mqtt_client import CerboMQTTClient
+from homeassistant.helpers.entity_registry import async_get_entity_registry
 
 DOMAIN = "cerbo_gx"
+PLATFORMS = [Platform.SENSOR]
 _LOGGER = logging.getLogger(__name__)
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
@@ -17,13 +20,14 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Configurer une entrée de configuration pour Cerbo GX."""
-    hass.data[DOMAIN][entry.entry_id] = entry.data
+    hass.data[DOMAIN][entry.entry_id] = {}
 
     # Récupérer les informations de configuration
     device_name = entry.data["device_name"]
     id_site = entry.data["cerbo_id"]
     username = entry.data["username"]
     password = entry.data["password"]
+    room_name = entry.data.get("room_name", "")  # Optionnel : association à une pièce
 
     # Initialiser la session HTTP pour la récupération du serveur MQTT
     session = async_get_clientsession(hass)
@@ -34,9 +38,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         id_site=id_site,
         username=username,
         password=password,
-        session=session
+        session=session,
     )
-    
+
     try:
         # Connexion au serveur MQTT
         await mqtt_client.connect()
@@ -45,60 +49,54 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         _LOGGER.error("Échec de la connexion au serveur MQTT: %s", str(e))
         return False
 
-    # Créer les capteurs dynamiquement pour chaque topic MQTT
-    sensor_configs = [
-        {
-            "state_topic": f"N/{id_site}/system/0/Batteries",
-            "name": f"{device_name} Battery Percent",
-            "unique_id": f"{device_name}_battery_percent",
-            "device_class": "battery",
-            "value_template": "{{ value_json.value[0].soc | round(0) }}",
-            "unit_of_measurement": "%"
-        },
-        {
-            "state_topic": f"N/{id_site}/system/0/Voltage",
-            "name": f"{device_name} Voltage",
-            "unique_id": f"{device_name}_voltage",
-            "device_class": "voltage",
-            "value_template": "{{ value_json.value[0].voltage | round(2) }}",
-            "unit_of_measurement": "V"
-        },
-        {
-            "state_topic": f"N/{id_site}/system/0/Temperature",
-            "name": f"{device_name} Temperature",
-            "unique_id": f"{device_name}_temperature",
-            "device_class": "temperature",
-            "value_template": "{{ value_json.value[0].temperature | round(1) }}",
-            "unit_of_measurement": "°C"
-        },
-    ]
+    # Stocker le client MQTT dans l'intégration
+    hass.data[DOMAIN][entry.entry_id]["mqtt_client"] = mqtt_client
 
-    # Fonction pour envoyer périodiquement des messages MQTT
-    async def publish_data_periodically():
-        while True:
-            for sensor_config in sensor_configs:
-                # Exemple de publication d'un message vide ou d'une valeur périodique
-                topic = sensor_config["state_topic"]
-                payload = ""  # Envoi d'une valeur vide, ou de données périodiques si nécessaire
-                _LOGGER.debug("Publication du message MQTT sur le topic %s", topic)
-                mqtt_client.client.publish(topic, payload)
+    # Associer l'appareil à une pièce si elle est spécifiée
+    if room_name:
+        entity_registry = await async_get_entity_registry(hass)
+        # Assurez-vous que l'ID de l'entité est bien formé
+        device_entity_id = f"{DOMAIN}.{device_name.lower()}_sensor"
+        _LOGGER.info("Association de l'appareil '%s' à la pièce '%s'", device_entity_id, room_name)
+        entity_registry.async_update_entity(
+            device_entity_id,
+            area_id=room_name,
+        )
+    # Configurer les entités associées via la plateforme "sensor"
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
-            # Envoi d'un "ping" sur le topic R/[site_id]/system/0/Serial toutes les 30 secondes
-            ping_topic = f"R/{id_site}/system/0/Serial"
-            ping_payload = ""  # Peut être remplacé par des données pertinentes si nécessaire
-            _LOGGER.debug("Envoi du ping sur le topic %s", ping_topic)
-            mqtt_client.client.publish(ping_topic, ping_payload)
-
-            # Attente de 30 secondes avant la prochaine publication
-            await asyncio.sleep(30)
-
-    # Démarrer la publication périodique dans un thread séparé
-    hass.async_create_task(publish_data_periodically())
+    # Lancer une tâche d'envoi périodique de données si nécessaire
+    hass.async_create_task(publish_data_periodically(mqtt_client, id_site))
 
     return True
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Décharger une entrée de configuration."""
+    # Décharger les plateformes associées (e.g., sensors)
+    await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+
+    # Déconnexion et nettoyage
     if entry.entry_id in hass.data[DOMAIN]:
+        mqtt_client = hass.data[DOMAIN][entry.entry_id].get("mqtt_client")
+        if mqtt_client:
+            await mqtt_client.disconnect()
         del hass.data[DOMAIN][entry.entry_id]
+
     return True
+
+async def publish_data_periodically(mqtt_client, id_site: str):
+    """Publier périodiquement des messages sur le serveur MQTT."""
+    while True:
+        try:
+            # Envoyer un ping ou autres données si nécessaire
+            ping_topic = f"R/{id_site}/system/0/Serial"
+            ping_payload = ""
+            _LOGGER.debug("Envoi du ping sur le topic %s", ping_topic)
+            mqtt_client.client.publish(ping_topic, ping_payload)
+
+            # Attendre 30 secondes avant le prochain envoi
+            await asyncio.sleep(30)
+
+        except Exception as e:
+            _LOGGER.error("Erreur lors de la publication des données: %s", str(e))
+            await asyncio.sleep(30)

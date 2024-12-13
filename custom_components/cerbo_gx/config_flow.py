@@ -1,30 +1,81 @@
-import paho.mqtt.client as mqtt
-import logging
+from homeassistant import config_entries
+from homeassistant.core import HomeAssistant
+import voluptuous as vol
+from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import area_registry
+from homeassistant.components.area_registry import AreaRegistry
+from . import DOMAIN
 
-_LOGGER = logging.getLogger(__name__)
+class CerboGXConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+    """Gérer un flux de configuration pour Cerbo GX."""
 
-class CerboMQTTClient:
-    def __init__(self, device_name, id_site, username, password, session):
-        self.device_name = device_name
-        self.id_site = id_site
-        self.username = username
-        self.password = password
-        self.session = session
-        self.client = mqtt.Client()
+    async def async_step_user(self, user_input=None):
+        """Gérer la première étape de l'ajout de l'intégration."""
+        if user_input is None:
+            # Récupérer la liste des pièces depuis le registre des zones
+            area_reg = area_registry.async_get(self.hass)
+            areas = [area.name for area in area_reg.async_list_areas()]
 
-    async def connect(self):
-        """Connecter le client MQTT."""
-        try:
-            # Connexion au serveur MQTT
-            self.client.username_pw_set(self.username, self.password)
-            self.client.connect(f"mqtt{self.id_site}.victronenergy.com")
-            self.client.loop_start()  # Démarre la boucle de gestion des messages MQTT
-            _LOGGER.info("Connexion au serveur MQTT réussie pour %s", self.device_name)
-        except Exception as e:
-            _LOGGER.error("Erreur lors de la connexion au serveur MQTT: %s", str(e))
-            raise
+            # Créer un schéma de validation avec les pièces disponibles
+            data_schema = vol.Schema({
+                vol.Required("device_name"): cv.string,
+                vol.Required("cerbo_id"): cv.string,
+                vol.Required("room"): vol.In(areas),  # Utiliser les zones dans un menu déroulant
+            })
 
-    async def disconnect(self):
-        """Déconnecter le client MQTT."""
-        self.client.loop_stop()
-        self.client.disconnect()
+            return self.async_show_form(
+                step_id="user",
+                data_schema=data_schema
+            )
+
+        # Stocker les informations pour l'étape suivante
+        self.context["device_name"] = user_input["device_name"]
+        self.context["cerbo_id"] = user_input["cerbo_id"]
+        self.context["room"] = user_input["room"]
+
+        # Passer à l'étape suivante
+        return await self.async_step_credentials()
+
+    async def async_step_credentials(self, user_input=None):
+        """Gérer l'étape où l'utilisateur entre ses informations de connexion."""
+        if user_input is None:
+            # Demander l'email et le mot de passe
+            return self.async_show_form(
+                step_id="credentials",
+                data_schema=vol.Schema({
+                    vol.Required("username"): cv.string,
+                    vol.Required("password"): cv.string,
+                }),
+                description_placeholders={
+                    "device_name": self.context.get("device_name"),
+                    "cerbo_id": self.context.get("cerbo_id"),
+                    "room": self.context.get("room"),
+                }
+            )
+
+        # Récupérer les informations des étapes précédentes
+        device_name = self.context.get("device_name")
+        cerbo_id = self.context.get("cerbo_id")
+        room = self.context.get("room")
+        username = user_input["username"]
+        password = user_input["password"]
+
+        # Trouver l'ID de la zone à partir du nom de la pièce
+        area_reg = area_registry.async_get(self.hass)
+        area_id = None
+        for area in area_reg.async_list_areas():
+            if area.name == room:
+                area_id = area.id
+                break
+        # Enregistrer directement l'entrée sans tentative de connexion
+        return self.async_create_entry(
+            title=device_name,
+            data={
+                "device_name": device_name,
+                "cerbo_id": cerbo_id,
+                "room": room,
+                "username": username,
+                "password": password,
+                "area_id": area_id,  # Associer l'appareil à la zone
+            }
+        )
