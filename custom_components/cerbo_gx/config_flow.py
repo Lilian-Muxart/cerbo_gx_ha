@@ -78,7 +78,7 @@ class CerboGXConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         area = area_reg.async_get_area_by_name(room)
         if area:
             # Si la pièce existe, associer l'appareil à cette zone
-            updated_data = {**entry.data, "room_id": area.id}
+            updated_data = {**entry, "room_id": area.id}
             
             # Mise à jour de l'entrée avec les nouvelles données
             await self.hass.config_entries.async_update_entry(entry, data=updated_data)
