@@ -3,7 +3,7 @@ import json
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.typing import HomeAssistantType
-from homeassistant.helpers.entity import SensorDeviceClass  # Remplace l'import
+from homeassistant.components.sensor import SensorDeviceClass
 from . import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
