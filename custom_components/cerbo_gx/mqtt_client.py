@@ -85,19 +85,4 @@ class CerboMQTTClient:
         # Ajouter ici une logique pour traiter les messages reçus et prendre des actions
         # Par exemple : publier un état ou modifier une entité dans Home Assistant.
 
-    async def publish_data_periodically(self):
-        """Publier périodiquement des messages sur le serveur MQTT."""
-        while True:
-            try:
-                # Envoi périodique de données (par exemple, un ping ou d'autres informations)
-                ping_topic = f"R/{self.id_site}/system/0/Serial"
-                ping_payload = ""
-                _LOGGER.debug("Envoi du ping sur le topic %s", ping_topic)
-                self.client.publish(ping_topic, ping_payload)
-
-                # Attendre 30 secondes avant le prochain envoi
-                await asyncio.sleep(30)
-
-            except Exception as e:
-                _LOGGER.error("Erreur lors de la publication des données: %s", str(e))
-                await asyncio.sleep(30)
+    
