@@ -1,28 +1,92 @@
-import voluptuous as vol
 from homeassistant import config_entries
-from homeassistant.helpers import selector
-from .const import DOMAIN, CONF_DEVICE_NAME, CONF_DEVICE_ID, CONF_EMAIL, CONF_PASSWORD, CONF_ROOM
+from homeassistant.core import HomeAssistant
+import voluptuous as vol
+from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import area_registry
+from . import DOMAIN
 
-class MyIntegrationConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+class CerboGXConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+    """Gérer un flux de configuration pour Cerbo GX."""
+
     async def async_step_user(self, user_input=None):
-        errors = {}
-        if user_input is not None:
-            # Validate user_input here if necessary
-            return self.async_create_entry(title=user_input[CONF_DEVICE_NAME], data=user_input)
+        """Gérer la première étape de l'ajout de l'intégration."""
+        if user_input is None:
+            # Récupérer la liste des pièces depuis le registre des zones
+            area_reg = area_registry.async_get(self.hass)
+            areas = [area.name for area in area_reg.async_list_areas()]
 
-        return self.async_show_form(
-            step_id="user",
-            data_schema=vol.Schema({
-                vol.Required(CONF_DEVICE_NAME): str,
-                vol.Required(CONF_DEVICE_ID): str,
-                vol.Required(CONF_EMAIL): str,
-                vol.Required(CONF_PASSWORD): str,
-                vol.Required(CONF_ROOM): selector({
-                    "area": {}
+            if not areas:
+                return self.async_abort(reason="no_areas")  # Si aucune zone n'est disponible
+
+            # Créer un schéma de validation avec les pièces disponibles
+            data_schema = vol.Schema({
+                vol.Required("device_name"): cv.string,
+                vol.Required("cerbo_id"): cv.string,
+                vol.Required("room"): vol.In(areas),  # Utiliser les zones dans un menu déroulant
+            })
+
+            return self.async_show_form(
+                step_id="user",
+                data_schema=data_schema
+            )
+
+        # Stocker les informations pour l'étape suivante
+        self.context["device_name"] = user_input["device_name"]
+        self.context["cerbo_id"] = user_input["cerbo_id"]
+        self.context["room"] = user_input["room"]
+
+        # Passer à l'étape suivante
+        return await self.async_step_credentials()
+
+    async def async_step_credentials(self, user_input=None):
+        """Gérer l'étape où l'utilisateur entre ses informations de connexion."""
+        if user_input is None:
+            # Demander l'email et le mot de passe
+            return self.async_show_form(
+                step_id="credentials",
+                data_schema=vol.Schema({
+                    vol.Required("username"): cv.string,
+                    vol.Required("password"): cv.string,
                 }),
-            }),
-            errors=errors,
+                description_placeholders={
+                    "device_name": self.context.get("device_name"),
+                    "cerbo_id": self.context.get("cerbo_id"),
+                    "room": self.context.get("room"),
+                }
+            )
+
+        # Récupérer les informations des étapes précédentes
+        device_name = self.context.get("device_name")
+        cerbo_id = self.context.get("cerbo_id")
+        room = self.context.get("room")
+        username = user_input["username"]
+        password = user_input["password"]
+
+        # Créer une nouvelle entrée de configuration
+        entry = self.async_create_entry(
+            title=device_name,
+            data={
+                "device_name": device_name,
+                "cerbo_id": cerbo_id,
+                "room": room,
+                "username": username,
+                "password": password,
+            }
         )
 
-    async def async_step_import(self, user_input=None):
-        return await self.async_step_user(user_input)
+        # Lier l'appareil à la pièce (zone)
+        area_reg = area_registry.async_get(self.hass)
+        area = area_reg.async_get_area_by_name(room)
+        if area:
+            # Si la pièce existe, associer l'appareil à cette zone
+            # Créer un dictionnaire avec les nouvelles données à mettre à jour
+            updated_data = {**entry.data, "room_id": area.id}
+            
+            # Mise à jour de l'entrée avec les nouvelles données
+            await self.hass.config_entries.async_update_entry(entry, data=updated_data)
+
+        # Retourner l'entrée mise à jour
+        return self.async_create_entry(
+            title=device_name,
+            data=updated_data
+        )
