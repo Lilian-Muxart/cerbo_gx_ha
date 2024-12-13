@@ -12,7 +12,7 @@ class CerboGXConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Gérer la première étape de l'ajout de l'intégration."""
         if user_input is None:
             # Récupérer la liste des pièces depuis le registre des zones
-            area_reg = await area_registry.async_get(self.hass)
+            area_reg = area_registry.async_get(self.hass)
             areas = [area.name for area in area_reg.async_list_areas()]
 
             # Créer un schéma de validation avec les pièces disponibles
