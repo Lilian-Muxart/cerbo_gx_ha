@@ -35,17 +35,20 @@ class CerboMQTTClient:
         # Spécifier le fichier de certificat CA
         ca_cert_path = os.path.join(os.path.dirname(__file__), "venus-ca.crt")
 
-        # Configurer la connexion TLS
-        self.client.tls_set(ca_certs=ca_cert_path, tls_version=ssl.PROTOCOL_TLSv1_2)
+        # Configurer la connexion TLS de manière non-bloquante
+        await asyncio.to_thread(self.client.tls_set, ca_certs=ca_cert_path, tls_version=ssl.PROTOCOL_TLSv1_2)
 
+        # Connecter au broker de manière non-bloquante
         loop = asyncio.get_event_loop()
-        await loop.run_in_executor(None, self.client.connect, broker_url, 8883, 60)
-        await loop.run_in_executor(None, self.client.loop_start)
+        await asyncio.to_thread(self.client.connect, broker_url, 8883, 60)
+        
+        # Démarrer la boucle MQTT dans un thread séparé
+        await asyncio.to_thread(self.client.loop_start)
 
     async def disconnect(self):
         """Déconnexion propre du serveur MQTT."""
         loop = asyncio.get_event_loop()
-        await loop.run_in_executor(None, self.client.disconnect)
+        await asyncio.to_thread(self.client.disconnect)
 
     def on_connect(self, client, userdata, flags, rc):
         """Gérer la connexion réussie."""

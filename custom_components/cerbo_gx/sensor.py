@@ -1,4 +1,5 @@
 import logging
+import json
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.typing import HomeAssistantType
@@ -62,11 +63,20 @@ class CerboBatterySensor(SensorEntity):
 
     async def async_update(self):
         """Mettre à jour l'état du capteur avec les données MQTT."""
-        # Récupérer la donnée MQTT du topic
-        mqtt_client = self.hass.data[DOMAIN].get("mqtt_client")
-        if mqtt_client:
-            payload = mqtt_client.client.subscribe(self._state_topic)
-            self._state = payload["value"][0]["soc"]  # Valeur spécifique de la batterie
+        # Nous n'utilisons plus cette méthode pour récupérer les données
+        pass
+
+    def on_message(self, client, userdata, msg):
+        """Gérer la réception de messages MQTT pour la batterie."""
+        if msg.topic == self._state_topic:
+            try:
+                payload = json.loads(msg.payload.decode())
+                self._state = payload.get("soc", None)  # Valeur spécifique de la batterie
+                self.schedule_update_ha_state()
+            except json.JSONDecodeError:
+                _LOGGER.error("Erreur de décodage JSON pour le message de batterie.")
+            except KeyError:
+                _LOGGER.error("Clé 'soc' manquante dans les données de batterie.")
 
 
 class CerboVoltageSensor(SensorEntity):
@@ -108,11 +118,20 @@ class CerboVoltageSensor(SensorEntity):
 
     async def async_update(self):
         """Mettre à jour l'état du capteur avec les données MQTT."""
-        # Récupérer la donnée MQTT du topic
-        mqtt_client = self.hass.data[DOMAIN].get("mqtt_client")
-        if mqtt_client:
-            payload = mqtt_client.client.subscribe(self._state_topic)
-            self._state = payload["value"][0]["voltage"]  # Valeur spécifique de la tension
+        # Nous n'utilisons plus cette méthode pour récupérer les données
+        pass
+
+    def on_message(self, client, userdata, msg):
+        """Gérer la réception de messages MQTT pour la tension."""
+        if msg.topic == self._state_topic:
+            try:
+                payload = json.loads(msg.payload.decode())
+                self._state = payload.get("voltage", None)  # Valeur spécifique de la tension
+                self.schedule_update_ha_state()
+            except json.JSONDecodeError:
+                _LOGGER.error("Erreur de décodage JSON pour le message de tension.")
+            except KeyError:
+                _LOGGER.error("Clé 'voltage' manquante dans les données de tension.")
 
 
 class CerboTemperatureSensor(SensorEntity):
@@ -154,8 +173,17 @@ class CerboTemperatureSensor(SensorEntity):
 
     async def async_update(self):
         """Mettre à jour l'état du capteur avec les données MQTT."""
-        # Récupérer la donnée MQTT du topic
-        mqtt_client = self.hass.data[DOMAIN].get("mqtt_client")
-        if mqtt_client:
-            payload = mqtt_client.client.subscribe(self._state_topic)
-            self._state = payload["value"][0]["temperature"]  # Valeur spécifique de la température
+        # Nous n'utilisons plus cette méthode pour récupérer les données
+        pass
+
+    def on_message(self, client, userdata, msg):
+        """Gérer la réception de messages MQTT pour la température."""
+        if msg.topic == self._state_topic:
+            try:
+                payload = json.loads(msg.payload.decode())
+                self._state = payload.get("temperature", None)  # Valeur spécifique de la température
+                self.schedule_update_ha_state()
+            except json.JSONDecodeError:
+                _LOGGER.error("Erreur de décodage JSON pour le message de température.")
+            except KeyError:
+                _LOGGER.error("Clé 'temperature' manquante dans les données de température.")
