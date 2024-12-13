@@ -2,7 +2,7 @@ from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
 import voluptuous as vol
 from homeassistant.helpers import config_validation as cv
-from homeassistant.helpers.area_registry import async_get_areas
+from homeassistant.components.area_registry import area_registry
 from . import DOMAIN
 
 class CerboGXConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -31,10 +31,10 @@ class CerboGXConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Gérer la sélection de la pièce où l'appareil sera associé."""
         if user_input is None:
             # Récupérer la liste des pièces disponibles dans Home Assistant
-            areas = await self.hass.helpers.area_registry.async_get_areas()
+            areas = await self.hass.helpers.area_registry.async_get_registry()
 
             # Créer une liste des noms de pièces à afficher
-            area_choices = {area.name: area.id for area in areas}
+            area_choices = {area.name: area.id for area in areas.areas}
 
             return self.async_show_form(
                 step_id="area_selection",
