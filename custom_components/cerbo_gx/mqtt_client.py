@@ -23,9 +23,10 @@ class CerboMQTTClient:
 
     def _get_vrm_broker_url(self):
         """Calculer l'URL du serveur MQTT basé sur l'ID du site."""
-        sum = sum(ord(character) for character in self.id_site.lower().strip())
-        broker_index = sum % 128
+        total = sum(ord(character) for character in self.id_site.lower().strip())  # Renommage de 'sum' en 'total'
+        broker_index = total % 128  # Utilisation de 'total' au lieu de 'sum'
         return f"mqtt{broker_index}.victronenergy.com"
+
 
     async def connect(self):
         """Se connecter au serveur MQTT avec l'URL dynamique et activer TLS sur le port 8883."""
