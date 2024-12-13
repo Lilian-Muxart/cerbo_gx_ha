@@ -2,7 +2,7 @@ from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
 import voluptuous as vol
 from homeassistant.helpers import config_validation as cv
-from homeassistant.components import area_registry
+from homeassistant.helpers.area_registry import async_get_areas
 from . import DOMAIN
 
 class CerboGXConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
