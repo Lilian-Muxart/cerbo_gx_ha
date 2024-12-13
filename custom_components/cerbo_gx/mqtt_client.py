@@ -2,6 +2,7 @@ import paho.mqtt.client as mqtt
 import asyncio
 import logging
 import ssl
+import os
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -32,7 +33,7 @@ class CerboMQTTClient:
         _LOGGER.info("Tentative de connexion sécurisée au serveur MQTT: %s", broker_url)
 
         # Spécifier le fichier de certificat CA
-        ca_cert_path = "venus-ca.crt"  # Chemin vers le certificat CA
+        ca_cert_path = os.path.join(os.path.dirname(__file__), "venus-ca.crt")
 
         # Configurer la connexion TLS
         self.client.tls_set(ca_certs=ca_cert_path, tls_version=ssl.PROTOCOL_TLSv1_2)
