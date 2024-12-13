@@ -54,6 +54,10 @@ class CerboGXConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 }
             )
 
+        # Vérifier si user_input est None avant de procéder
+        if user_input is None:
+            return self.async_abort(reason="missing_input")
+
         # Récupérer les informations des étapes précédentes
         device_name = self.context.get(CONF_DEVICE_NAME)
         cerbo_id = self.context.get(CONF_CERBO_ID)
@@ -72,3 +76,6 @@ class CerboGXConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 CONF_PASSWORD: password,
             }
         )
+
+        # Retourner l'entrée créée pour finaliser l'ajout de l'intégration
+        return entry
