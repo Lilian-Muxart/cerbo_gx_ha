@@ -1,92 +1,73 @@
+import logging
 from homeassistant import config_entries
-from homeassistant.core import HomeAssistant
-import voluptuous as vol
-from homeassistant.helpers import config_validation as cv
-from homeassistant.helpers import area_registry
-from . import DOMAIN
+from homeassistant.const import CONF_ID, CONF_NAME, CONF_EMAIL, CONF_PASSWORD
+from homeassistant.helpers import selector
+from .const import DOMAIN
+from . import _get_vrm_broker_url  # Importer la fonction que nous allons définir ci-dessous
 
-class CerboGXConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """Gérer un flux de configuration pour Cerbo GX."""
+_LOGGER = logging.getLogger(__name__)
+
+class VictronConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+    """Handle a configuration flow for Victron integration."""
+
+    VERSION = 1
+
+    def __init__(self):
+        self.id_site = None
+        self.device_name = None
+        self.room = None
+        self.email = None
+        self.password = None
 
     async def async_step_user(self, user_input=None):
-        """Gérer la première étape de l'ajout de l'intégration."""
+        """Handle the user input in the configuration flow."""
         if user_input is None:
-            # Récupérer la liste des pièces depuis le registre des zones
-            area_reg = area_registry.async_get(self.hass)
-            areas = [area.name for area in area_reg.async_list_areas()]
+            return self.async_show_form(step_id="user", data_schema=self._get_data_schema())
 
-            if not areas:
-                return self.async_abort(reason="no_areas")  # Si aucune zone n'est disponible
+        # Enregistrez les informations d'entrée de l'utilisateur
+        self.device_name = user_input[CONF_NAME]
+        self.id_site = user_input[CONF_ID]
+        self.room = user_input.get("room")
+        self.email = user_input[CONF_EMAIL]
+        self.password = user_input[CONF_PASSWORD]
 
-            # Créer un schéma de validation avec les pièces disponibles
-            data_schema = vol.Schema({
-                vol.Required("device_name"): cv.string,
-                vol.Required("cerbo_id"): cv.string,
-                vol.Required("room"): vol.In(areas),  # Utiliser les zones dans un menu déroulant
-            })
+        # Connexion au serveur MQTT
+        broker_url = self._get_vrm_broker_url(self.id_site)
+        _LOGGER.info(f"Connecting to MQTT broker: {broker_url}")
+        # Connectez-vous au broker MQTT ici
 
-            return self.async_show_form(
-                step_id="user",
-                data_schema=data_schema
-            )
-
-        # Stocker les informations pour l'étape suivante
-        self.context["device_name"] = user_input["device_name"]
-        self.context["cerbo_id"] = user_input["cerbo_id"]
-        self.context["room"] = user_input["room"]
-
-        # Passer à l'étape suivante
-        return await self.async_step_credentials()
-
-    async def async_step_credentials(self, user_input=None):
-        """Gérer l'étape où l'utilisateur entre ses informations de connexion."""
-        if user_input is None:
-            # Demander l'email et le mot de passe
-            return self.async_show_form(
-                step_id="credentials",
-                data_schema=vol.Schema({
-                    vol.Required("username"): cv.string,
-                    vol.Required("password"): cv.string,
-                }),
-                description_placeholders={
-                    "device_name": self.context.get("device_name"),
-                    "cerbo_id": self.context.get("cerbo_id"),
-                    "room": self.context.get("room"),
-                }
-            )
-
-        # Récupérer les informations des étapes précédentes
-        device_name = self.context.get("device_name")
-        cerbo_id = self.context.get("cerbo_id")
-        room = self.context.get("room")
-        username = user_input["username"]
-        password = user_input["password"]
-
-        # Créer une nouvelle entrée de configuration
-        entry = self.async_create_entry(
-            title=device_name,
-            data={
-                "device_name": device_name,
-                "cerbo_id": cerbo_id,
-                "room": room,
-                "username": username,
-                "password": password,
-            }
-        )
-
-        # Lier l'appareil à la pièce (zone)
-        area_reg = area_registry.async_get(self.hass)
-        area = area_reg.async_get_area_by_name(room)
-        if area:
-            # Si la pièce existe, associer l'appareil à cette zone
-            # Créer un dictionnaire avec les nouvelles données à mettre à jour
-            updated_data = {**entry.data, "room_id": area.id}
-            
-            # Mise à jour de l'entrée avec les nouvelles données
-            await self.hass.config_entries.async_update_entry(entry, data=updated_data)
-
-        # Retourner l'entrée mise à jour
         return self.async_create_entry(
-            title=device_name,
-            data=updated_data
+            title=self.device_name,
+            data={
+                CONF_NAME: self.device_name,
+                CONF_ID: self.id_site,
+                "room": self.room,
+                CONF_EMAIL: self.email,
+                CONF_PASSWORD: self.password,
+                "mqtt_broker": broker_url,
+            },
         )
+
+    def _get_data_schema(self):
+        """Retourne un schéma de formulaire pour l'entrée utilisateur."""
+        return {
+            vol.Required(CONF_NAME): str,
+            vol.Required(CONF_ID): str,
+            vol.Required("room"): selector.selector(
+                {
+                    "select": {
+                        "options": ["Living Room", "Kitchen", "Bedroom", "Bathroom"]  # Liste des pièces
+                    }
+                }
+            ),
+            vol.Required(CONF_EMAIL): str,
+            vol.Required(CONF_PASSWORD): str,
+        }
+
+    def _get_vrm_broker_url(self, id_site):
+        """Calculer l'URL du serveur MQTT basé sur l'ID du site."""
+        sum = 0
+        for character in id_site.lower().strip():
+            sum += ord(character)
+        broker_index = sum % 128
+        return f"mqtt{broker_index}.victronenergy.com"

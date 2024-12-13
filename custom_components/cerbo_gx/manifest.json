@@ -1,10 +1,10 @@
 {
-  "domain": "cerbo_gx",
-  "name": "Cerbo GX",
-  "documentation": "https://www.example.com/cerbo-gx",
-  "dependencies": ["mqtt"],
-  "codeowners": ["@votre_utilisateur"],
+  "domain": "victron_integration",
+  "name": "Victron Integration",
+  "documentation": "https://www.example.com",
+  "dependencies": [],
+  "codeowners": ["@ton_utilisateur"],
+  "requirements": ["paho-mqtt"],
   "config_flow": true,
-  "version": "1.0.0",
-  "requirements": ["paho-mqtt"]
+  "iot_class": "cloud_polling"
 }
