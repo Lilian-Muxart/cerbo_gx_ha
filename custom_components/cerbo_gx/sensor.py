@@ -22,7 +22,7 @@ async def async_setup_entry(hass: HomeAssistantType, entry, async_add_entities) 
         CerboTemperatureSensor(device_name, id_site),
     ]
 
-    # Ajouter les capteurs
+    # Ajouter les capteurs à Home Assistant
     async_add_entities(sensors, update_before_add=True)
 
     _LOGGER.info("Capteurs ajoutés pour %s", device_name)
@@ -74,19 +74,16 @@ class CerboBatterySensor(SensorEntity):
                 payload = json.loads(msg.payload.decode())
                 _LOGGER.debug("Payload reçu pour la batterie : %s", payload)
 
-                # Vérifier que 'value' est une liste et qu'elle contient un élément
                 if isinstance(payload, dict) and 'value' in payload:
-                    battery_data = payload.get("value", [])[0]  # Prend le premier élément de la liste
+                    battery_data = payload.get("value", [])[0]
                     if battery_data and "soc" in battery_data:
-                        self._state = battery_data["soc"]  # Récupère le pourcentage de charge de la batterie
+                        self._state = battery_data["soc"]
                         _LOGGER.info("État de la batterie mis à jour : %s%%", self._state)
                     else:
-                        _LOGGER.warning("Clé 'soc' manquante ou mauvaise structure des données de batterie.")
+                        _LOGGER.warning("Clé 'soc' manquante ou structure incorrecte des données de batterie.")
                 else:
                     _LOGGER.warning("Le message ne contient pas de clé 'value' ou structure invalide.")
-                # Mettre à jour l'état du capteur dans Home Assistant
                 self.schedule_update_ha_state()
-
             except json.JSONDecodeError:
                 _LOGGER.error("Erreur de décodage JSON pour le message de batterie : %s", msg.payload)
 
@@ -137,13 +134,11 @@ class CerboVoltageSensor(SensorEntity):
                 payload = json.loads(msg.payload.decode())
                 _LOGGER.debug("Payload reçu pour la tension : %s", payload)
 
-                # Extraire la valeur 'voltage' (tension)
                 self._state = payload.get("voltage", None)
                 if self._state is not None:
                     _LOGGER.info("Tension mise à jour : %s V", self._state)
                 else:
                     _LOGGER.warning("Clé 'voltage' manquante dans le payload de tension.")
-                # Mettre à jour l'état dans Home Assistant
                 self.schedule_update_ha_state()
             except json.JSONDecodeError:
                 _LOGGER.error("Erreur de décodage JSON pour le message de tension : %s", msg.payload)
@@ -195,13 +190,11 @@ class CerboTemperatureSensor(SensorEntity):
                 payload = json.loads(msg.payload.decode())
                 _LOGGER.debug("Payload reçu pour la température : %s", payload)
 
-                # Extraire la valeur 'temperature' (température)
                 self._state = payload.get("temperature", None)
                 if self._state is not None:
                     _LOGGER.info("Température mise à jour : %s °C", self._state)
                 else:
                     _LOGGER.warning("Clé 'temperature' manquante dans le payload de température.")
-                # Mettre à jour l'état dans Home Assistant
                 self.schedule_update_ha_state()
             except json.JSONDecodeError:
                 _LOGGER.error("Erreur de décodage JSON pour le message de température : %s", msg.payload)
