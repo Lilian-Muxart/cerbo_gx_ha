@@ -3,10 +3,9 @@ import ssl
 import os
 
 class CerboMQTTClient:
-    def __init__(self, id_site, device_name=None, client_id=None, username=None, password=None):
+    def __init__(self, id_site, client_id=None, username=None, password=None):
         """Initialisation du client MQTT."""
         self.id_site = id_site
-        self.device_name = device_name  # Ajouter le device_name si nécessaire
         self.client = mqtt.Client(client_id)
         self.username = username
         self.password = password

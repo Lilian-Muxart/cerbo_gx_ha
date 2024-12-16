@@ -31,7 +31,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # Initialisation du client MQTT avec les données de configuration
     mqtt_client = CerboMQTTClient(
-        device_name=device_name,
         id_site=id_site,
         username=username,
         password=password,
