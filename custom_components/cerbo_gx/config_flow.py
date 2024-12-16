@@ -2,7 +2,7 @@ from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
 import voluptuous as vol
 from homeassistant.helpers import config_validation as cv
-from homeassistant.helpers.area_registry import AreaRegistry  # Importer AreaRegistry
+from homeassistant.helpers.area_registry import AreaRegistry  # Utiliser AreaRegistry
 from . import DOMAIN
 
 
@@ -15,9 +15,9 @@ class CerboGXConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             # Créer l'instance de AreaRegistry
             area_registry = AreaRegistry(self.hass)
             await area_registry.async_load()  # Charger les zones
-            
-            # Récupérer la liste des zones
-            areas = await area_registry.async_list_areas()  # Liste des zones
+
+            # Liste des zones
+            areas = list(area_registry.areas.values())  # Convertir en liste
             area_names = [area.name for area in areas]  # Extraire les noms des zones
 
             # Créer un schéma de validation avec les pièces disponibles
@@ -69,7 +69,7 @@ class CerboGXConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if room:
             area_registry = AreaRegistry(self.hass)
             await area_registry.async_load()  # Charger les zones
-            areas = await area_registry.async_list_areas()
+            areas = list(area_registry.areas.values())  # Convertir en liste
             area_id = next(
                 (area.id for area in areas if area.name == room), None
             )
