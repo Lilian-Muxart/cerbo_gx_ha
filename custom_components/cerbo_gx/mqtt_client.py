@@ -2,6 +2,11 @@ import paho.mqtt.client as mqtt
 import ssl
 import os
 import asyncio
+import logging
+
+
+_LOGGER = logging.getLogger(__name__)
+
 
 class CerboMQTTClient:
     def __init__(self, id_site, client_id=None, username=None, password=None):
@@ -64,13 +69,13 @@ class CerboMQTTClient:
     def on_connect(self, client, userdata, flags, rc):
         """Callback lorsque la connexion au broker MQTT est réussie."""
         if rc == 0:  # Vérifier que la connexion est réussie
-            print(f"Connexion réussie avec le code de retour {rc}")
+            _LOGGER.info(f"Connexion réussie avec le code de retour {rc}")
             # Envoi du message de keepalive après connexion
             keepalive_topic = f"R/{self.id_site}/keepalive"
             self.client.publish(keepalive_topic, "", qos=0, retain=False)
-            print(f"Message envoyé au topic {keepalive_topic} : 1")
+            _LOGGER.info(f"Message envoyé au topic {keepalive_topic} : ''")  # Message vide
         else:
-            print(f"Erreur de connexion avec le code de retour {rc}")
+            _LOGGER.error(f"Erreur de connexion avec le code de retour {rc}")
 
     def add_subscriber(self, subscriber):
         """Ajouter un abonné pour recevoir les messages MQTT."""
