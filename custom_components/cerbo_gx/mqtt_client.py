@@ -61,6 +61,17 @@ class CerboMQTTClient:
         self.client.loop_stop()  # Arrêter la boucle
         self.client.disconnect()
         
+    def on_connect(self, client, userdata, flags, rc):
+        """Callback lorsque la connexion au broker MQTT est réussie."""
+        if rc == 0:  # Vérifier que la connexion est réussie
+            print(f"Connexion réussie avec le code de retour {rc}")
+            # Envoi du message de keepalive après connexion
+            keepalive_topic = f"R/{self.id_site}/keepalive"
+            self.client.publish(keepalive_topic, "1", qos=0, retain=False)
+            print(f"Message envoyé au topic {keepalive_topic} : 1")
+        else:
+            print(f"Erreur de connexion avec le code de retour {rc}")
+            
     def add_subscriber(self, subscriber):
         """Ajouter un abonné pour recevoir les messages MQTT."""
         self.client.message_callback_add(subscriber.get_state_topic(), subscriber.on_mqtt_message)
