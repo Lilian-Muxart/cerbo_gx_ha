@@ -4,6 +4,8 @@ from homeassistant.components.sensor import SensorEntity
 from homeassistant.helpers.typing import HomeAssistantType
 from homeassistant.components.sensor import SensorDeviceClass
 from .mqtt_client import CerboMQTTClient  # Client MQTT importé (à définir dans mqtt_client.py)
+from . import DOMAIN
+
 
 _LOGGER = logging.getLogger(__name__)
 
