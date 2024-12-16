@@ -33,6 +33,7 @@ class CerboMQTTClient:
             loop.run_in_executor(None, self._configure_tls)
         else:
             raise FileNotFoundError(f"Le certificat CA n'a pas été trouvé à l'emplacement : {self.ca_cert_path}")
+        self.client.on_connect = self.on_connect
         
     def _configure_tls(self):
         """Configurer la connexion sécurisée dans un thread séparé."""
@@ -55,7 +56,6 @@ class CerboMQTTClient:
         """Connexion synchrone au broker MQTT (exécutée dans un thread séparé)."""
         self.client.connect(self.broker_url, 8883)
         self.client.loop_start()  # Lance la boucle dans un thread séparé pour ne pas bloquer
-        self.client.on_connect(self.client, None, None, 0)
 
     def disconnect(self):
         """Déconnexion et arrêt de la boucle."""
@@ -73,7 +73,7 @@ class CerboMQTTClient:
             _LOGGER.info(f"Connexion réussie avec le code de retour {rc}")
             # Envoi du message de keepalive après connexion
             keepalive_topic = f"R/{self.id_site}/keepalive"
-            self.client.publish(keepalive_topic, "", qos=0, retain=False)
+            self.client.publish(keepalive_topic, "", qos=0)
             _LOGGER.info(f"Message envoyé au topic {keepalive_topic} : ''")  # Message vide
         else:
             _LOGGER.error(f"Erreur de connexion avec le code de retour {rc}")
