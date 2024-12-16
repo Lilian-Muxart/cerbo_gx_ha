@@ -14,7 +14,6 @@ class CerboGXConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is None:
             # Créer l'instance de AreaRegistry
             area_registry = AreaRegistry(self.hass)
-            await area_registry.async_load()  # Charger les zones
 
             # Liste des zones
             areas = list(area_registry.areas.values())  # Convertir en liste
@@ -68,7 +67,6 @@ class CerboGXConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         area_id = None
         if room:
             area_registry = AreaRegistry(self.hass)
-            await area_registry.async_load()  # Charger les zones
             areas = list(area_registry.areas.values())  # Convertir en liste
             area_id = next(
                 (area.id for area in areas if area.name == room), None
