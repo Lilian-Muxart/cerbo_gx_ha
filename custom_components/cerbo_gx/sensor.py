@@ -4,7 +4,9 @@ from homeassistant.components.sensor import SensorEntity
 from homeassistant.helpers.typing import HomeAssistantType
 from homeassistant.components.sensor import SensorDeviceClass
 from .mqtt_client import CerboMQTTClient  # Client MQTT importé (à définir dans mqtt_client.py)
+from homeassistant.core import HomeAssistant
 from . import DOMAIN
+import asyncio
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -70,7 +72,11 @@ class CerboBaseSensor(SensorEntity):
             value = self._extract_value(payload)
             if value is not None:
                 self._state = value
-                self.async_write_ha_state()  # Mettre à jour l'état de l'entité
+
+                # Exécuter async_write_ha_state dans l'event loop principal
+                loop = asyncio.get_event_loop()
+                asyncio.run_coroutine_threadsafe(self.async_write_ha_state(), loop)
+
         except Exception as e:
             _LOGGER.error("Erreur de traitement du message MQTT pour %s: %s", self._attr_name, e)
 

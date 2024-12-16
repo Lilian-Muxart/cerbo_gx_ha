@@ -75,21 +75,8 @@ class CerboMQTTClient:
             keepalive_topic = f"R/{self.id_site}/keepalive"
             self.client.publish(keepalive_topic, "", qos=0)
             _LOGGER.info(f"Message envoyé au topic {keepalive_topic} : ''")
-
-            # S'abonner à tous les sous-topics sous "N/{cerbo_id}/#"
-            topic = f"N/{self.id_site}/#"
-            self.client.subscribe(topic)  # S'abonne à tous les sous-topics
-            # Enregistrer un callback générique pour tous les messages
-            self.client.on_message = self.on_message
-
-            _LOGGER.info(f"Abonnement au topic {topic} pour tous les sous-topics")
         else:
             _LOGGER.error(f"Erreur de connexion avec le code de retour {rc}")
-
-
-    def on_message(self, client, userdata, msg):
-        """Callback générique pour tous les messages reçus."""
-        _LOGGER.info(f"Message reçu sur {msg.topic}: {msg.payload.decode('utf-8')}")
 
 
     def add_subscriber(self, subscriber):
