@@ -65,7 +65,7 @@ class CerboBaseSensor(SensorEntity):
         self._mqtt_client.add_subscriber(self)  # Inscrire le capteur comme abonné
         self._mqtt_client.client.subscribe(self.get_state_topic())  # Utiliser get_state_topic()
 
-    def on_message(self, client, userdata, msg):
+    def on_mqtt_message(self, client, userdata, msg):
         """Gérer les messages MQTT reçus."""
         try:
             payload = json.loads(msg.payload)
