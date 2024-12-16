@@ -85,20 +85,3 @@ class CerboMQTTClient:
     def subscribe(self, topic):
         """Souscrire à un topic MQTT."""
         self.client.subscribe(topic)
-
-    
-    def on_mqtt_message(self, client, userdata, msg):
-        """Gérer les messages MQTT reçus."""
-        try:
-            # Afficher le message brut reçu
-            _LOGGER.info(f"Message reçu sur le topic {msg.topic}: {msg.payload.decode()}")
-            
-            payload = json.loads(msg.payload)
-            value = self._extract_value(payload)
-            
-            # Afficher la valeur extraite
-            _LOGGER.info(f"Valeur extraite du message: {value}")
-        
-        except Exception as e:
-            _LOGGER.error(f"Erreur de traitement du message MQTT pour {self._attr_name}: {e}")
-
