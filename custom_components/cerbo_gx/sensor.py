@@ -60,7 +60,7 @@ class CerboBaseSensor(SensorEntity):
         """Abonnez-vous aux messages MQTT lorsque l'entité est ajoutée."""
         _LOGGER.info("Abonnement au topic MQTT pour %s", self._attr_name)
         self._mqtt_client.add_subscriber(self)  # Inscrire le capteur comme abonné
-        self._mqtt_client.client.subscribe(self._state_topic)
+        self._mqtt_client.client.subscribe(self.get_state_topic())  # Utiliser get_state_topic()
 
     def on_mqtt_message(self, client, userdata, msg):
         """Gérer les messages MQTT reçus."""
