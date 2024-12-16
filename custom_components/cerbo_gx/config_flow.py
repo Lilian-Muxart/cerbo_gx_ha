@@ -2,7 +2,6 @@ from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
 import voluptuous as vol
 from homeassistant.helpers import config_validation as cv
-from homeassistant.helpers import area_registry
 from . import DOMAIN
 
 
@@ -12,15 +11,11 @@ class CerboGXConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_user(self, user_input=None):
         """Gérer la première étape de l'ajout de l'intégration."""
         if user_input is None:
-            # Récupérer la liste des pièces depuis le registre des zones
-            area_reg = await area_registry.async_get_registry(self.hass)  # Update this line
-            areas = [area.name for area in area_reg.areas]
-
-            # Créer un schéma de validation avec les pièces disponibles
+            # Créer un schéma de validation sans récupérer les zones
             data_schema = vol.Schema({
                 vol.Required("device_name"): cv.string,
                 vol.Required("cerbo_id"): cv.string,
-                vol.Optional("room", default=""): vol.In(areas),  # Menu déroulant avec les zones
+                vol.Optional("room", default=""): cv.string,  # Zone optionnelle, mais sans liste prédéfinie
             })
 
             return self.async_show_form(
@@ -60,13 +55,11 @@ class CerboGXConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         username = user_input["username"]
         password = user_input["password"]
 
-        # Trouver l'ID de la zone à partir du nom de la pièce
+        # Associer la zone uniquement si elle est spécifiée
         area_id = None
         if room:
-            area_reg = await area_registry.async_get_registry(self.hass)  # Update this line
-            area_id = next(
-                (area.id for area in area_reg.areas if area.name == room), None
-            )
+            # Si vous ne récupérez pas la zone, vous pouvez laisser cette variable `None`
+            pass
 
         # Enregistrer directement l'entrée sans tentative de connexion
         return self.async_create_entry(
@@ -77,6 +70,6 @@ class CerboGXConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 "room": room,
                 "username": username,
                 "password": password,
-                "area_id": area_id,  # Associer l'appareil à la zone
+                "area_id": area_id,  # Associer l'appareil à la zone (peut être `None` si non spécifiée)
             }
         )
