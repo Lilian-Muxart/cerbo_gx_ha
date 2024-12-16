@@ -69,6 +69,7 @@ class CerboBaseSensor(SensorEntity):
         """Gérer les messages MQTT reçus."""
         try:
             payload = json.loads(msg.payload)
+            _LOGGER.info("Message reçu sur %s: %s", msg.topic, json.dumps(payload, indent=2))
             value = self._extract_value(payload)
             if value is not None:
                 self._state = value
