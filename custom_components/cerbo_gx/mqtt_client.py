@@ -53,28 +53,27 @@ class CerboMQTTClient:
             _LOGGER.error("Impossible de se connecter au serveur MQTT.")
             raise ConnectionError("Échec de la connexion au serveur MQTT.")
 
-    async def disconnect(self):
-        """Déconnexion propre du serveur MQTT."""
-        loop = asyncio.get_event_loop()
-        await asyncio.to_thread(self.client.disconnect)
-        if self.is_connected:
-            _LOGGER.info("Déconnexion propre du serveur MQTT.")
-            loop = asyncio.get_event_loop()
-            await asyncio.to_thread(self.client.disconnect)
+    # La méthode de déconnexion est supprimée
+    # async def disconnect(self):
+    #     """Déconnexion propre du serveur MQTT."""
+    #     if self.is_connected:
+    #         _LOGGER.info("Déconnexion propre du serveur MQTT.")
+    #         await asyncio.to_thread(self.client.disconnect)
+    #         self.is_connected = False
 
     def on_connect(self, client, userdata, flags, rc):
         """Gérer la connexion réussie."""
         if rc == 0:
             _LOGGER.info("Connecté au serveur MQTT avec succès.")
             self.is_connected = True
-            # Abonnement à tous les topics nécessaires
-            self.client.subscribe(f"N/{self.id_site}/system/0/#")
+            # Pas d'abonnement immédiat, on attend que le capteur s'abonne.
         else:
             _LOGGER.error("Erreur de connexion MQTT avec code de retour %d", rc)
             self.is_connected = False
 
     def on_disconnect(self, client, userdata, rc):
         """Gérer la déconnexion."""
+        # Plus besoin de gérer la déconnexion proprement ici
         self.is_connected = False
         if rc != 0:
             _LOGGER.warning("Déconnexion imprévue du serveur MQTT, code %d", rc)
@@ -87,9 +86,15 @@ class CerboMQTTClient:
         self._notify_subscribers(msg)
 
     def add_subscriber(self, subscriber):
-        """Ajouter un abonné (capteur) à la liste des abonnés."""
+        """Ajouter un abonné (capteur) à la liste des abonnés et s'abonner au topic approprié."""
         if subscriber not in self._subscribers:
             self._subscribers.append(subscriber)
+
+        # S'abonner au topic spécifique si ce n'est pas déjà fait
+        topic = subscriber.get_state_topic()
+        if topic not in [sub.get_state_topic() for sub in self._subscribers]:
+            _LOGGER.info("Abonnement au topic MQTT: %s", topic)
+            self.client.subscribe(topic)
 
     def _notify_subscribers(self, msg):
         """Notifier tous les abonnés du message reçu."""

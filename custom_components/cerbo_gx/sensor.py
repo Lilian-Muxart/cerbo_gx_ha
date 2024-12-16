@@ -74,9 +74,13 @@ class CerboBaseSensor(SensorEntity):
 
     def _extract_value(self, payload: dict):
         """Extraire la valeur en fonction de la clé spécifique."""
-        if "value" in payload and isinstance(payload["value"], list):
-            data = payload["value"][0]  # Accéder au premier élément de la liste
-            return data.get(self._value_key, None)  # Extraire la valeur selon la clé
+        # Vérifiez si "value" existe et contient des éléments
+        if "value" in payload and isinstance(payload["value"], list) and len(payload["value"]) > 0:
+            # Extraire la première entrée de la liste (la batterie)
+            sensor_data = payload["value"][0]
+            # Extraire la valeur en fonction de la clé spécifique
+            if self._value_key in sensor_data:
+                return sensor_data[self._value_key]  # Retourner la valeur sous la clé spécifiée
         return None
 
     @property
@@ -101,7 +105,7 @@ class CerboVoltageSensor(CerboBaseSensor):
     """Capteur pour la tension du Cerbo GX."""
 
     def __init__(self, device_name: str, id_site: str, mqtt_client: CerboMQTTClient):
-        state_topic = f"N/{id_site}/system/0/Voltage"
+        state_topic = f"N/{id_site}/system/0/Batteries"
         value_key = "voltage"  # Nous voulons extraire la tension
         super().__init__(device_name, id_site, mqtt_client, state_topic, value_key)
         self._attr_name = f"{device_name} Voltage"
@@ -114,7 +118,7 @@ class CerboTemperatureSensor(CerboBaseSensor):
     """Capteur pour la température du Cerbo GX."""
 
     def __init__(self, device_name: str, id_site: str, mqtt_client: CerboMQTTClient):
-        state_topic = f"N/{id_site}/system/0/Temperature"
+        state_topic = f"N/{id_site}/system/0/Batteries"
         value_key = "temperature"  # Nous voulons extraire la température
         super().__init__(device_name, id_site, mqtt_client, state_topic, value_key)
         self._attr_name = f"{device_name} Temperature"
