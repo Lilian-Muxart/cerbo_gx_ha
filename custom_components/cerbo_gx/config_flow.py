@@ -3,7 +3,6 @@ from homeassistant.core import HomeAssistant
 import voluptuous as vol
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import area_registry
-from homeassistant.components.area_registry import AreaRegistry
 from . import DOMAIN
 
 class CerboGXConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -14,7 +13,10 @@ class CerboGXConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is None:
             # Récupérer la liste des pièces depuis le registre des zones
             area_reg = area_registry.async_get(self.hass)
-            areas = [area.name for area in area_reg.async_list_areas()]
+            areas = [area.name for area in await area_reg.async_list_areas()]
+
+            if not areas:
+                return self.async_abort(reason="no_areas_found")  # Pas de zones disponibles
 
             # Créer un schéma de validation avec les pièces disponibles
             data_schema = vol.Schema({
@@ -29,12 +31,14 @@ class CerboGXConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             )
 
         # Stocker les informations pour l'étape suivante
-        self.context["device_name"] = user_input["device_name"]
-        self.context["cerbo_id"] = user_input["cerbo_id"]
-        self.context["room"] = user_input["room"]
+        device_name = user_input["device_name"]
+        cerbo_id = user_input["cerbo_id"]
+        room = user_input["room"]
 
         # Passer à l'étape suivante
-        return await self.async_step_credentials()
+        return await self.async_step_credentials(
+            user_input={"device_name": device_name, "cerbo_id": cerbo_id, "room": room}
+        )
 
     async def async_step_credentials(self, user_input=None):
         """Gérer l'étape où l'utilisateur entre ses informations de connexion."""
@@ -47,26 +51,27 @@ class CerboGXConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Required("password"): cv.string,
                 }),
                 description_placeholders={
-                    "device_name": self.context.get("device_name"),
-                    "cerbo_id": self.context.get("cerbo_id"),
-                    "room": self.context.get("room"),
+                    "device_name": user_input.get("device_name"),
+                    "cerbo_id": user_input.get("cerbo_id"),
+                    "room": user_input.get("room"),
                 }
             )
 
         # Récupérer les informations des étapes précédentes
-        device_name = self.context.get("device_name")
-        cerbo_id = self.context.get("cerbo_id")
-        room = self.context.get("room")
+        device_name = user_input["device_name"]
+        cerbo_id = user_input["cerbo_id"]
+        room = user_input["room"]
         username = user_input["username"]
         password = user_input["password"]
 
         # Trouver l'ID de la zone à partir du nom de la pièce
         area_reg = area_registry.async_get(self.hass)
-        area_id = None
-        for area in area_reg.async_list_areas():
-            if area.name == room:
-                area_id = area.id
-                break
+        areas = await area_reg.async_list_areas()
+        area_id = next((area.id for area in areas if area.name == room), None)
+
+        if area_id is None:
+            return self.async_abort(reason="area_not_found")
+
         # Enregistrer directement l'entrée sans tentative de connexion
         return self.async_create_entry(
             title=device_name,
