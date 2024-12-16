@@ -2,7 +2,7 @@ from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
 import voluptuous as vol
 from homeassistant.helpers import config_validation as cv
-from homeassistant.helpers import area_registry
+from homeassistant.helpers.entity_registry import async_get_registry
 from . import DOMAIN
 
 
@@ -13,8 +13,8 @@ class CerboGXConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Gérer la première étape de l'ajout de l'intégration."""
         if user_input is None:
             # Récupérer la liste des pièces depuis le registre des zones
-            area_reg = self.hass.helpers.area_registry.async_get()  # Obtenir l'instance du registre
-            areas = [area.name for area in area_reg.async_get_areas()]  # Utiliser async_get_areas()
+            area_reg = await async_get_registry(self.hass)
+            areas = list(set([entry.room for entry in area_reg.entities if entry.room]))
 
             # Créer un schéma de validation avec les pièces disponibles
             data_schema = vol.Schema({
@@ -63,9 +63,9 @@ class CerboGXConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         # Trouver l'ID de la zone à partir du nom de la pièce
         area_id = None
         if room:
-            area_reg = self.hass.helpers.area_registry.async_get()  # Obtenir l'instance du registre
+            area_reg = await async_get_registry(self.hass)
             area_id = next(
-                (area.id for area in area_reg.async_get_areas() if area.name == room), None
+                (area.id for area in area_reg.entities if area.room == room), None
             )
 
         # Enregistrer directement l'entrée sans tentative de connexion
