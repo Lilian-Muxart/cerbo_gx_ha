@@ -15,7 +15,6 @@ class CerboGXConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema = vol.Schema({
                 vol.Required("device_name"): cv.string,
                 vol.Required("cerbo_id"): cv.string,
-                vol.Optional("room", default=""): cv.string,  # Zone optionnelle, mais sans liste prédéfinie
             })
 
             return self.async_show_form(
@@ -26,7 +25,6 @@ class CerboGXConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         # Stocker les informations pour l'étape suivante
         self.context["device_name"] = user_input["device_name"]
         self.context["cerbo_id"] = user_input["cerbo_id"]
-        self.context["room"] = user_input.get("room")
 
         # Passer à l'étape suivante
         return await self.async_step_credentials()
@@ -44,22 +42,14 @@ class CerboGXConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 description_placeholders={
                     "device_name": self.context.get("device_name"),
                     "cerbo_id": self.context.get("cerbo_id"),
-                    "room": self.context.get("room") or "Non spécifiée",
                 }
             )
 
         # Récupérer les informations des étapes précédentes
         device_name = self.context.get("device_name")
         cerbo_id = self.context.get("cerbo_id")
-        room = self.context.get("room")
         username = user_input["username"]
         password = user_input["password"]
-
-        # Associer la zone uniquement si elle est spécifiée
-        area_id = None
-        if room:
-            # Si vous ne récupérez pas la zone, vous pouvez laisser cette variable `None`
-            pass
 
         # Enregistrer directement l'entrée sans tentative de connexion
         return self.async_create_entry(
@@ -67,9 +57,7 @@ class CerboGXConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data={
                 "device_name": device_name,
                 "cerbo_id": cerbo_id,
-                "room": room,
                 "username": username,
                 "password": password,
-                "area_id": area_id,  # Associer l'appareil à la zone (peut être `None` si non spécifiée)
             }
         )
