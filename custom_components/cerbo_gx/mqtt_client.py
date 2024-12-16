@@ -55,6 +55,7 @@ class CerboMQTTClient:
         """Connexion synchrone au broker MQTT (exécutée dans un thread séparé)."""
         self.client.connect(self.broker_url, 8883)
         self.client.loop_start()  # Lance la boucle dans un thread séparé pour ne pas bloquer
+        self.client.on_connect(self.client, None, None, 0)
 
     def disconnect(self):
         """Déconnexion et arrêt de la boucle."""
