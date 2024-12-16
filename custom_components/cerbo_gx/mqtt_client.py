@@ -31,6 +31,10 @@ class CerboMQTTClient:
 
     async def connect(self):
         """Se connecter au serveur MQTT avec l'URL dynamique et activer TLS sur le port 8883."""
+        if self.is_connected:
+            _LOGGER.info("Le client MQTT est déjà connecté.")
+            return  # Si déjà connecté, ne rien faire
+
         broker_url = self._get_vrm_broker_url()
         _LOGGER.info("Tentative de connexion sécurisée au serveur MQTT: %s", broker_url)
 
@@ -46,34 +50,26 @@ class CerboMQTTClient:
 
         # Démarrer la boucle MQTT dans un thread séparé
         await asyncio.to_thread(self.client.loop_start)
-        
+
         # Vérifier la connexion
         await asyncio.sleep(2)
         if not self.is_connected:
             _LOGGER.error("Impossible de se connecter au serveur MQTT.")
             raise ConnectionError("Échec de la connexion au serveur MQTT.")
 
-    # La méthode de déconnexion est supprimée
-    # async def disconnect(self):
-    #     """Déconnexion propre du serveur MQTT."""
-    #     if self.is_connected:
-    #         _LOGGER.info("Déconnexion propre du serveur MQTT.")
-    #         await asyncio.to_thread(self.client.disconnect)
-    #         self.is_connected = False
-
     def on_connect(self, client, userdata, flags, rc):
         """Gérer la connexion réussie."""
         if rc == 0:
             _LOGGER.info("Connecté au serveur MQTT avec succès.")
             self.is_connected = True
-            # Pas d'abonnement immédiat, on attend que le capteur s'abonne.
+            # Une fois connecté, s'abonner aux topics des abonnés
+            self._subscribe_to_topics()
         else:
             _LOGGER.error("Erreur de connexion MQTT avec code de retour %d", rc)
             self.is_connected = False
 
     def on_disconnect(self, client, userdata, rc):
         """Gérer la déconnexion."""
-        # Plus besoin de gérer la déconnexion proprement ici
         self.is_connected = False
         if rc != 0:
             _LOGGER.warning("Déconnexion imprévue du serveur MQTT, code %d", rc)
@@ -91,10 +87,15 @@ class CerboMQTTClient:
             self._subscribers.append(subscriber)
 
         # S'abonner au topic spécifique si ce n'est pas déjà fait
-        topic = subscriber.get_state_topic()
-        if topic not in [sub.get_state_topic() for sub in self._subscribers]:
-            _LOGGER.info("Abonnement au topic MQTT: %s", topic)
-            self.client.subscribe(topic)
+        self._subscribe_to_topics()
+
+    def _subscribe_to_topics(self):
+        """S'abonner aux topics de tous les abonnés."""
+        for subscriber in self._subscribers:
+            topic = subscriber.get_state_topic()
+            if topic not in [sub.get_state_topic() for sub in self._subscribers]:
+                _LOGGER.info("Abonnement au topic MQTT: %s", topic)
+                self.client.subscribe(topic)
 
     def _notify_subscribers(self, msg):
         """Notifier tous les abonnés du message reçu."""

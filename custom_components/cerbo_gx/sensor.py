@@ -56,9 +56,10 @@ class CerboBaseSensor(SensorEntity):
     async def async_added_to_hass(self):
         """Abonnez-vous aux messages MQTT lorsque l'entité est ajoutée."""
         _LOGGER.info("Abonnement au topic MQTT pour %s", self._attr_name)
-        # Abonnement au topic MQTT pour recevoir les données
+        # Connecter au broker MQTT une fois pour tous les capteurs
         await self._mqtt_client.connect()
         self._mqtt_client.add_subscriber(self)  # Inscrire le capteur comme abonné
+        # Il est important de s'abonner au topic spécifique du capteur
         self._mqtt_client.client.subscribe(self._state_topic)
 
     def on_mqtt_message(self, client, userdata, msg):
@@ -98,7 +99,7 @@ class CerboBatterySensor(CerboBaseSensor):
         self._attr_name = f"{device_name} Battery"
         self._attr_unique_id = f"{id_site}_battery_percent"
         self._attr_device_class = SensorDeviceClass.BATTERY
-        self._attr_native_unit_of_measurement = "%"
+        self._attr_native_unit_of_measurement = "%" 
 
 
 class CerboVoltageSensor(CerboBaseSensor):
