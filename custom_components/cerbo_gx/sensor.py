@@ -12,15 +12,18 @@ async def async_setup_entry(hass: HomeAssistantType, entry, async_add_entities) 
     """Configurer les capteurs pour une entrée donnée."""
     device_name = entry.data["device_name"]
     id_site = entry.data["cerbo_id"]
-    username = entry.data["username"]
-    password = entry.data["password"]
+
+    # Récupérer le client MQTT initialisé dans __init__.py
+    mqtt_client = hass.data[DOMAIN][entry.entry_id]["mqtt_client"]
+
+    # Vérifier que le client est disponible
+    if not mqtt_client:
+        _LOGGER.error("Le client MQTT n'est pas disponible pour %s", device_name)
+        return
 
     _LOGGER.info(
         "Initialisation des capteurs pour le dispositif %s avec l'ID de site %s", device_name, id_site
     )
-
-    # Créer le client MQTT
-    mqtt_client = CerboMQTTClient(device_name, id_site, username, password, hass)
 
     # Liste des capteurs à ajouter
     sensors = [
@@ -43,9 +46,9 @@ class CerboBaseSensor(SensorEntity):
         self._device_name = device_name
         self._id_site = id_site
         self._state = None
-        self._mqtt_client = mqtt_client  # Utiliser le client MQTT pour gérer les messages
+        self._mqtt_client = mqtt_client
         self._state_topic = state_topic
-        self._value_key = value_key  # Clé spécifique pour extraire la valeur du message
+        self._value_key = value_key
         self._attr_device_info = {
             "identifiers": {(DOMAIN, id_site)},
             "name": device_name,
@@ -59,7 +62,6 @@ class CerboBaseSensor(SensorEntity):
         # Connecter au broker MQTT une fois pour tous les capteurs
         await self._mqtt_client.connect()
         self._mqtt_client.add_subscriber(self)  # Inscrire le capteur comme abonné
-        # Il est important de s'abonner au topic spécifique du capteur
         self._mqtt_client.client.subscribe(self._state_topic)
 
     def on_mqtt_message(self, client, userdata, msg):
@@ -71,17 +73,17 @@ class CerboBaseSensor(SensorEntity):
                 self._state = value
                 self.async_write_ha_state()  # Mettre à jour l'état de l'entité
         except Exception as e:
-            _LOGGER.error("Erreur de traitement du message MQTT: %s", e)
+            _LOGGER.error("Erreur de traitement du message MQTT pour %s: %s", self._attr_name, e)
 
     def _extract_value(self, payload: dict):
         """Extraire la valeur en fonction de la clé spécifique."""
         # Vérifiez si "value" existe et contient des éléments
         if "value" in payload and isinstance(payload["value"], list) and len(payload["value"]) > 0:
-            # Extraire la première entrée de la liste (la batterie)
+            # Extraire la première entrée de la liste (par exemple, la batterie)
             sensor_data = payload["value"][0]
             # Extraire la valeur en fonction de la clé spécifique
             if self._value_key in sensor_data:
-                return sensor_data[self._value_key]  # Retourner la valeur sous la clé spécifiée
+                return sensor_data[self._value_key]
         return None
 
     @property
@@ -99,7 +101,7 @@ class CerboBatterySensor(CerboBaseSensor):
         self._attr_name = f"{device_name} Battery"
         self._attr_unique_id = f"{id_site}_battery_percent"
         self._attr_device_class = SensorDeviceClass.BATTERY
-        self._attr_native_unit_of_measurement = "%" 
+        self._attr_native_unit_of_measurement = "%"
 
 
 class CerboVoltageSensor(CerboBaseSensor):
