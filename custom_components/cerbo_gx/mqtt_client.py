@@ -19,6 +19,7 @@ class CerboMQTTClient:
         self.client.on_disconnect = self.on_disconnect
         self.client.on_message = self.on_message
         self.is_connected = False
+        self._subscribers = []  # Liste pour stocker les capteurs qui attendent les mises à jour
 
     def _get_vrm_broker_url(self):
         """Calculer l'URL du serveur MQTT basé sur l'ID du site."""
@@ -81,7 +82,16 @@ class CerboMQTTClient:
     def on_message(self, client, userdata, msg):
         """Gérer la réception des messages."""
         _LOGGER.info("Message reçu sur le topic %s: %s", msg.topic, msg.payload.decode('utf-8'))
-        # Ajoutez ici une logique pour traiter le message reçu
         
-        # Ajouter ici une logique pour traiter les messages reçus et prendre des actions
-        # Par exemple : publier un état ou modifier une entité dans Home Assistant.
+        # Notifier les abonnés
+        self._notify_subscribers(msg)
+
+    def add_subscriber(self, subscriber):
+        """Ajouter un abonné (capteur) à la liste des abonnés."""
+        if subscriber not in self._subscribers:
+            self._subscribers.append(subscriber)
+
+    def _notify_subscribers(self, msg):
+        """Notifier tous les abonnés du message reçu."""
+        for subscriber in self._subscribers:
+            subscriber.on_mqtt_message(self.client, None, msg)
