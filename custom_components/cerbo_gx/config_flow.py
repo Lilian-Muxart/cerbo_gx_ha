@@ -2,7 +2,7 @@ from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
 import voluptuous as vol
 from homeassistant.helpers import config_validation as cv
-from homeassistant.helpers.area_registry import async_get_area_registry
+from homeassistant.helpers.area_registry import AreaRegistry  # Importer AreaRegistry
 from . import DOMAIN
 
 
@@ -12,15 +12,19 @@ class CerboGXConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_user(self, user_input=None):
         """Gérer la première étape de l'ajout de l'intégration."""
         if user_input is None:
-            # Récupérer la liste des pièces depuis le registre des zones
-            area_reg = await async_get_area_registry(self.hass)
-            areas = [area.name for area in area_reg.areas]  # Liste des noms des zones
+            # Créer l'instance de AreaRegistry
+            area_registry = AreaRegistry(self.hass)
+            await area_registry.async_load()  # Charger les zones
+            
+            # Récupérer la liste des zones
+            areas = await area_registry.async_list_areas()  # Liste des zones
+            area_names = [area.name for area in areas]  # Extraire les noms des zones
 
             # Créer un schéma de validation avec les pièces disponibles
             data_schema = vol.Schema({
                 vol.Required("device_name"): cv.string,
                 vol.Required("cerbo_id"): cv.string,
-                vol.Optional("room", default=""): vol.In(areas),  # Menu déroulant avec les zones
+                vol.Optional("room", default=""): vol.In(area_names),  # Menu déroulant avec les zones
             })
 
             return self.async_show_form(
@@ -63,9 +67,11 @@ class CerboGXConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         # Trouver l'ID de la zone à partir du nom de la pièce
         area_id = None
         if room:
-            area_reg = await async_get_area_registry(self.hass)
+            area_registry = AreaRegistry(self.hass)
+            await area_registry.async_load()  # Charger les zones
+            areas = await area_registry.async_list_areas()
             area_id = next(
-                (area.id for area in area_reg.areas if area.name == room), None
+                (area.id for area in areas if area.name == room), None
             )
 
         # Enregistrer directement l'entrée sans tentative de connexion
