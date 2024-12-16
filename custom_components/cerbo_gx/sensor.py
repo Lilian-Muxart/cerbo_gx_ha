@@ -85,6 +85,10 @@ class CerboBaseSensor(SensorEntity):
     def state(self):
         return self._state
 
+    def get_state_topic(self):
+        """Retourner le topic d'état du capteur."""
+        return self._state_topic
+
 
 class CerboBatterySensor(CerboBaseSensor):
     """Capteur pour la batterie du Cerbo GX."""
