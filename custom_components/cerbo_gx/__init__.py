@@ -26,15 +26,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     username = entry.data["username"]
     password = entry.data["password"]
 
-    # Initialiser la session HTTP pour la récupération du serveur MQTT
-    session = async_get_clientsession(hass)
-
     # Initialisation du client MQTT avec les données de configuration
     mqtt_client = CerboMQTTClient(
         id_site=id_site,
         username=username,
         password=password,
-        session=session,
     )
 
     try:
