@@ -62,11 +62,23 @@ class CerboMQTTClient:
         if rc == 0:
             _LOGGER.info("Connecté au serveur MQTT avec succès.")
             self.is_connected = True
-            # Une fois connecté, s'abonner aux topics des abonnés
+            # Une fois connecté, envoyer un message de keepalive
+            self.send_keepalive_message()
+            # S'abonner aux topics des abonnés
             self._subscribe_to_topics()
         else:
             _LOGGER.error("Erreur de connexion MQTT avec code de retour %d", rc)
             self.is_connected = False
+
+    def send_keepalive_message(self):
+        """Envoyer un message de keepalive sur le topic spécifique à l'id_site."""
+        topic = f"R/{self.id_site}/keepalive"
+        message = "keepalive"
+        try:
+            self.client.publish(topic, message, qos=1)
+            _LOGGER.info("Message de keepalive envoyé sur le topic %s: %s", topic, message)
+        except Exception as e:
+            _LOGGER.error("Erreur lors de l'envoi du message de keepalive: %s", e)
 
     def on_disconnect(self, client, userdata, rc):
         """Gérer la déconnexion."""
