@@ -1,6 +1,7 @@
 import paho.mqtt.client as mqtt
 import ssl
 import os
+import asyncio
 
 class CerboMQTTClient:
     def __init__(self, id_site, client_id=None, username=None, password=None):
@@ -18,15 +19,20 @@ class CerboMQTTClient:
             self.client.username_pw_set(self.username, self.password)
         
         # Spécification du chemin du certificat CA par défaut
-        ca_cert_path = os.path.join(os.path.dirname(__file__), "venus-ca.crt")
+        self.ca_cert_path = os.path.join(os.path.dirname(__file__), "venus-ca.crt")
         
         # Vérification de l'existence du certificat
-        if os.path.exists(ca_cert_path):
-            # Configurer la connexion sécurisée avec le certificat
-            self.client.tls_set(ca_certs=ca_cert_path, certfile=None, keyfile=None, tls_version=ssl.PROTOCOL_TLSv1_2)
+        if os.path.exists(self.ca_cert_path):
+            # Assurez-vous que tls_set est exécuté dans un thread séparé pour ne pas bloquer Home Assistant
+            loop = asyncio.get_event_loop()
+            loop.run_in_executor(None, self._configure_tls)
         else:
-            raise FileNotFoundError(f"Le certificat CA n'a pas été trouvé à l'emplacement : {ca_cert_path}")
+            raise FileNotFoundError(f"Le certificat CA n'a pas été trouvé à l'emplacement : {self.ca_cert_path}")
         
+    def _configure_tls(self):
+        """Configurer la connexion sécurisée dans un thread séparé."""
+        self.client.tls_set(ca_certs=self.ca_cert_path, certfile=None, keyfile=None, tls_version=ssl.PROTOCOL_TLSv1_2)
+
     def _get_vrm_broker_url(self):
         """Calculer l'URL du serveur MQTT basé sur l'ID du site."""
         sum = 0
@@ -36,12 +42,22 @@ class CerboMQTTClient:
         return f"mqtt{broker_index}.victronenergy.com"
 
     def connect(self):
-        """Connexion synchrone au broker MQTT."""
+        """Connexion au broker MQTT (asynchrone)."""
+        loop = asyncio.get_event_loop()
+        loop.run_in_executor(None, self._connect_sync)
+
+    def _connect_sync(self):
+        """Connexion synchrone au broker MQTT (exécutée dans un thread séparé)."""
         self.client.connect(self.broker_url, 8883)
         self.client.loop_start()  # Lance la boucle dans un thread séparé pour ne pas bloquer
 
     def disconnect(self):
         """Déconnexion et arrêt de la boucle."""
+        loop = asyncio.get_event_loop()
+        loop.run_in_executor(None, self._disconnect_sync)
+
+    def _disconnect_sync(self):
+        """Déconnexion synchrone du broker MQTT."""
         self.client.loop_stop()  # Arrêter la boucle
         self.client.disconnect()
         
