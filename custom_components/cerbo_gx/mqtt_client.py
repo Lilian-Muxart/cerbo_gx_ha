@@ -27,10 +27,6 @@ class CerboMQTTClient:
         else:
             raise FileNotFoundError(f"Le certificat CA n'a pas été trouvé à l'emplacement : {ca_cert_path}")
         
-        # Se connecter au broker MQTT en utilisant le port sécurisé 8883
-        self.client.connect(self.broker_url, 8883)
-        self.client.loop_start()
-
     def _get_vrm_broker_url(self):
         """Calculer l'URL du serveur MQTT basé sur l'ID du site."""
         sum = 0
@@ -39,6 +35,16 @@ class CerboMQTTClient:
         broker_index = sum % 128
         return f"mqtt{broker_index}.victronenergy.com"
 
+    def connect(self):
+        """Connexion synchrone au broker MQTT."""
+        self.client.connect(self.broker_url, 8883)
+        self.client.loop_start()  # Lance la boucle dans un thread séparé pour ne pas bloquer
+
+    def disconnect(self):
+        """Déconnexion et arrêt de la boucle."""
+        self.client.loop_stop()  # Arrêter la boucle
+        self.client.disconnect()
+        
     def add_subscriber(self, subscriber):
         """Ajouter un abonné pour recevoir les messages MQTT."""
         self.client.message_callback_add(subscriber.get_state_topic(), subscriber.on_mqtt_message)

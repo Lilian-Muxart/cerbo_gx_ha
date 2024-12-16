@@ -1,9 +1,7 @@
 import logging
-import asyncio
 from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.typing import ConfigType
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.const import Platform
 from .mqtt_client import CerboMQTTClient
 
@@ -34,8 +32,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
 
     try:
-        # Connexion au serveur MQTT
-        await mqtt_client.connect()
+        # Connexion au serveur MQTT (synchrone)
+        mqtt_client.connect()  # Appel synchrone
         _LOGGER.info("Connexion au serveur MQTT réussie pour %s", device_name)
     except Exception as e:
         _LOGGER.error("Échec de la connexion au serveur MQTT: %s", str(e))
@@ -58,7 +56,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if entry.entry_id in hass.data[DOMAIN]:
         mqtt_client = hass.data[DOMAIN][entry.entry_id].get("mqtt_client")
         if mqtt_client:
-            await mqtt_client.disconnect()
+            # Arrêter la boucle de MQTT et se déconnecter proprement
+            mqtt_client.disconnect()
         del hass.data[DOMAIN][entry.entry_id]
 
     return True
