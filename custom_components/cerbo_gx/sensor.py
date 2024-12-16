@@ -3,6 +3,8 @@ import json
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.helpers.typing import HomeAssistantType
 from homeassistant.components.sensor import SensorDeviceClass
+from homeassistant.components.mqtt import async_publish
+from homeassistant.helpers.event import async_track_state_change
 from . import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
@@ -47,6 +49,26 @@ class CerboBaseSensor(SensorEntity):
             "suggested_area": area_id,  # Associer l'appareil à une pièce
         }
 
+    async def async_added_to_hass(self):
+        """Abonnez-vous aux messages MQTT lorsque l'entité est ajoutée."""
+        _LOGGER.info("Abonnement au topic MQTT pour %s", self._attr_name)
+        # Abonnement au topic MQTT pour recevoir les données
+        await self._subscribe_to_mqtt()
+
+    async def _subscribe_to_mqtt(self):
+        """S'abonner aux messages MQTT et traiter les mises à jour."""
+        # Exemple de gestion de l'abonnement
+        async def mqtt_message_received(msg):
+            """Gérer les messages MQTT reçus."""
+            payload = json.loads(msg.payload)
+            if "value" in payload:
+                self._state = payload["value"]
+                self.async_write_ha_state()  # Mettre à jour l'état de l'entité
+
+        # Exemple d'abonnement, à adapter en fonction de la structure de ton MQTT
+        topic = self._state_topic  # Utilise le topic spécifique pour chaque capteur
+        await self.hass.components.mqtt.async_subscribe(topic, mqtt_message_received)
+
 
 class CerboBatterySensor(CerboBaseSensor):
     """Capteur pour la batterie du Cerbo GX."""
@@ -57,7 +79,7 @@ class CerboBatterySensor(CerboBaseSensor):
         self._attr_unique_id = f"{id_site}_battery_percent"
         self._attr_device_class = SensorDeviceClass.BATTERY
         self._attr_native_unit_of_measurement = "%"
-        self._state_topic = f"N/{id_site}/system/0/Batteries"
+        self._state_topic = f"N/{id_site}/system/0/Battery"
 
     @property
     def state(self):
