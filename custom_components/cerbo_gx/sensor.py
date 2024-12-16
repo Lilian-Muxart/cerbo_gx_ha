@@ -63,7 +63,7 @@ class CerboBaseSensor(SensorEntity):
         self._mqtt_client.add_subscriber(self)  # Inscrire le capteur comme abonné
         self._mqtt_client.client.subscribe(self.get_state_topic())  # Utiliser get_state_topic()
 
-    async def on_mqtt_message(self, client, userdata, msg):
+    def on_mqtt_message(self, client, userdata, msg):
         """Gérer les messages MQTT reçus."""
         try:
             payload = json.loads(msg.payload)
@@ -74,7 +74,7 @@ class CerboBaseSensor(SensorEntity):
         except Exception as e:
             _LOGGER.error("Erreur de traitement du message MQTT pour %s: %s", self._attr_name, e)
 
-    async def _extract_value(self, payload: dict):
+    def _extract_value(self, payload: dict):
         """Extraire la valeur en fonction de la clé spécifique."""
         if "value" in payload and isinstance(payload["value"], list) and len(payload["value"]) > 0:
             sensor_data = payload["value"][0]
