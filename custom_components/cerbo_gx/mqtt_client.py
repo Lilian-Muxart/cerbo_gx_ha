@@ -3,7 +3,7 @@ import ssl
 import os
 import asyncio
 import logging
-
+import json
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -34,7 +34,7 @@ class CerboMQTTClient:
         else:
             raise FileNotFoundError(f"Le certificat CA n'a pas été trouvé à l'emplacement : {self.ca_cert_path}")
         self.client.on_connect = self.on_connect
-        
+
     def _configure_tls(self):
         """Configurer la connexion sécurisée dans un thread séparé."""
         self.client.tls_set(ca_certs=self.ca_cert_path, certfile=None, keyfile=None, tls_version=ssl.PROTOCOL_TLSv1_2)
@@ -85,3 +85,20 @@ class CerboMQTTClient:
     def subscribe(self, topic):
         """Souscrire à un topic MQTT."""
         self.client.subscribe(topic)
+
+    
+    def on_mqtt_message(self, client, userdata, msg):
+        """Gérer les messages MQTT reçus."""
+        try:
+            # Afficher le message brut reçu
+            _LOGGER.info(f"Message reçu sur le topic {msg.topic}: {msg.payload.decode()}")
+            
+            payload = json.loads(msg.payload)
+            value = self._extract_value(payload)
+            
+            # Afficher la valeur extraite
+            _LOGGER.info(f"Valeur extraite du message: {value}")
+        
+        except Exception as e:
+            _LOGGER.error(f"Erreur de traitement du message MQTT pour {self._attr_name}: {e}")
+
