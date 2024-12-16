@@ -59,8 +59,6 @@ class CerboBaseSensor(SensorEntity):
     async def async_added_to_hass(self):
         """Abonnez-vous aux messages MQTT lorsque l'entité est ajoutée."""
         _LOGGER.info("Abonnement au topic MQTT pour %s", self._attr_name)
-        # Connecter au broker MQTT une fois pour tous les capteurs
-        await self._mqtt_client.connect()
         self._mqtt_client.add_subscriber(self)  # Inscrire le capteur comme abonné
         self._mqtt_client.client.subscribe(self._state_topic)
 
@@ -77,11 +75,8 @@ class CerboBaseSensor(SensorEntity):
 
     def _extract_value(self, payload: dict):
         """Extraire la valeur en fonction de la clé spécifique."""
-        # Vérifiez si "value" existe et contient des éléments
         if "value" in payload and isinstance(payload["value"], list) and len(payload["value"]) > 0:
-            # Extraire la première entrée de la liste (par exemple, la batterie)
             sensor_data = payload["value"][0]
-            # Extraire la valeur en fonction de la clé spécifique
             if self._value_key in sensor_data:
                 return sensor_data[self._value_key]
         return None
