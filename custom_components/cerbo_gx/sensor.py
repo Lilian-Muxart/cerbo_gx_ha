@@ -1,74 +1,96 @@
-from homeassistant.helpers.entity import Entity
-from homeassistant.components.mqtt import async_subscribe
-from homeassistant.const import STATE_UNKNOWN
 import logging
 import json
+from homeassistant.components.sensor import SensorEntity
+from homeassistant.helpers.typing import HomeAssistantType
+from homeassistant.components.sensor import SensorDeviceClass
+from . import DOMAIN
 
-# Configure le logger
 _LOGGER = logging.getLogger(__name__)
 
-def setup_platform(hass, config, add_entities, discovery_info=None):
-    """Configurer le capteur de batterie pour chaque dispositif Cerbo GX."""
-    
-    # Récupérer le cerbo_id stocké dans hass.data après la configuration
-    cerbo_id = hass.data.get("cerbo_id")  # Le cerbo_id est stocké ici après la configuration
-    if not cerbo_id:
-        _LOGGER.error("cerbo_id non trouvé dans hass.data")
-        return
+async def async_setup_entry(hass: HomeAssistantType, entry, async_add_entities) -> None:
+    """Configurer les capteurs pour une entrée donnée."""
+    device_name = entry.data["device_name"]
+    id_site = entry.data["cerbo_id"]
+    area_id = entry.data.get("area_id")  # Récupérer la zone associée
 
-    # Créer le capteur de batterie
-    add_entities([BatterySensor(hass, cerbo_id)])
+    _LOGGER.info(
+        "Initialisation des capteurs pour le dispositif %s avec l'ID de site %s", device_name, id_site
+    )
+
+    # Liste des capteurs à ajouter
+    sensors = [
+        CerboBatterySensor(device_name, id_site, area_id),
+        CerboVoltageSensor(device_name, id_site, area_id),
+        CerboTemperatureSensor(device_name, id_site, area_id),
+    ]
+
+    # Ajouter les capteurs
+    async_add_entities(sensors, update_before_add=True)
+
+    _LOGGER.info("Capteurs ajoutés pour %s", device_name)
 
 
-class BatterySensor(Entity):
-    """Capteur pour le pourcentage de batterie."""
-    
-    def __init__(self, hass, cerbo_id):
-        """Initialiser le capteur de batterie."""
-        self.hass = hass
-        self._cerbo_id = cerbo_id
-        self._name = f"Battery Percent {self._cerbo_id}"
-        self._state = STATE_UNKNOWN
-        self._topic = f"N/{self._cerbo_id}/system/0/Batteries"
+class CerboBaseSensor(SensorEntity):
+    """Classe de base pour les capteurs du Cerbo GX."""
 
-    @property
-    def name(self):
-        """Retourne le nom du capteur."""
-        return self._name
-    
+    def __init__(self, device_name: str, id_site: str, area_id: str):
+        """Initialiser le capteur."""
+        self._device_name = device_name
+        self._id_site = id_site
+        self._area_id = area_id
+        self._state = None
+        self._attr_device_info = {
+            "identifiers": {(DOMAIN, id_site)},
+            "name": device_name,
+            "manufacturer": "Victron Energy",
+            "model": "Cerbo GX",
+            "suggested_area": area_id,  # Associer l'appareil à une pièce
+        }
+
+
+class CerboBatterySensor(CerboBaseSensor):
+    """Capteur pour la batterie du Cerbo GX."""
+
+    def __init__(self, device_name: str, id_site: str, area_id: str):
+        super().__init__(device_name, id_site, area_id)
+        self._attr_name = f"{device_name} Battery Percent"
+        self._attr_unique_id = f"{id_site}_battery_percent"
+        self._attr_device_class = SensorDeviceClass.BATTERY
+        self._attr_native_unit_of_measurement = "%"
+        self._state_topic = f"N/{id_site}/system/0/Batteries"
+
     @property
     def state(self):
-        """Retourne l'état (pourcentage de batterie) du capteur."""
         return self._state
-    
+
+
+class CerboVoltageSensor(CerboBaseSensor):
+    """Capteur pour la tension du Cerbo GX."""
+
+    def __init__(self, device_name: str, id_site: str, area_id: str):
+        super().__init__(device_name, id_site, area_id)
+        self._attr_name = f"{device_name} Voltage"
+        self._attr_unique_id = f"{id_site}_voltage"
+        self._attr_device_class = SensorDeviceClass.VOLTAGE
+        self._attr_native_unit_of_measurement = "V"
+        self._state_topic = f"N/{id_site}/system/0/Voltage"
+
     @property
-    def device_class(self):
-        """Retourne la classe du capteur (ici une batterie)."""
-        return "battery"
-    
+    def state(self):
+        return self._state
+
+
+class CerboTemperatureSensor(CerboBaseSensor):
+    """Capteur pour la température du Cerbo GX."""
+
+    def __init__(self, device_name: str, id_site: str, area_id: str):
+        super().__init__(device_name, id_site, area_id)
+        self._attr_name = f"{device_name} Temperature"
+        self._attr_unique_id = f"{id_site}_temperature"
+        self._attr_device_class = SensorDeviceClass.TEMPERATURE
+        self._attr_native_unit_of_measurement = "°C"
+        self._state_topic = f"N/{id_site}/system/0/Temperature"
+
     @property
-    def unit_of_measurement(self):
-        """Retourne l'unité de mesure (pourcentage)."""
-        return "%"
-
-    async def async_added_to_hass(self):
-        """Abonnez-vous au topic MQTT lorsque le capteur est ajouté."""
-        await self.hass.components.mqtt.async_subscribe(self._topic, self._message_received)
-
-    def _message_received(self, msg):
-        """Traitement du message reçu."""
-        try:
-            payload = json.loads(msg.payload)
-            # Extraire la valeur du SOC à partir du payload JSON
-            battery_percent = payload['value'][0].get('soc', None)
-            if battery_percent is not None:
-                # Appliquer le value_template et arrondir
-                self._state = round(battery_percent, 0)
-                self.async_write_ha_state()  # Met à jour l'état de l'entité dans Home Assistant
-            else:
-                _LOGGER.error("Valeur 'soc' non trouvée dans le message reçu.")
-        except (json.JSONDecodeError, KeyError) as e:
-            _LOGGER.error(f"Erreur de traitement du message MQTT: {e}")
-            self._state = STATE_UNKNOWN
-            self.async_write_ha_state()  # Met à jour l'état en cas d'erreur
-
+    def state(self):
+        return self._state
