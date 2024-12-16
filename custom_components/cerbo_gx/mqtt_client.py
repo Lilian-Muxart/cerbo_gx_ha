@@ -1,25 +1,35 @@
 import paho.mqtt.client as mqtt
-import asyncio
-import logging
 import ssl
 import os
 
-_LOGGER = logging.getLogger(__name__)
-
 class CerboMQTTClient:
-    def __init__(self, device_name, id_site, username, password, session):
-        self.device_name = device_name
+    def __init__(self, id_site, client_id=None, username=None, password=None):
+        """Initialisation du client MQTT."""
         self.id_site = id_site
+        self.client = mqtt.Client(client_id)
         self.username = username
         self.password = password
-        self.session = session
-        self.client = mqtt.Client(client_id=f"cerbo_{id_site}")
-        self.client.username_pw_set(username, password)
-        self.client.on_connect = self.on_connect
-        self.client.on_disconnect = self.on_disconnect
-        self.client.on_message = self.on_message
-        self.is_connected = False
-        self._subscribers = []  # Liste pour stocker les capteurs qui attendent les mises à jour
+        
+        # Calculer l'URL du broker basé sur l'ID du site
+        self.broker_url = self._get_vrm_broker_url()
+
+        # Configuration de l'authentification MQTT (si les informations sont disponibles)
+        if self.username and self.password:
+            self.client.username_pw_set(self.username, self.password)
+        
+        # Spécification du chemin du certificat CA par défaut
+        ca_cert_path = os.path.join(os.path.dirname(__file__), "venus-ca.crt")
+        
+        # Vérification de l'existence du certificat
+        if os.path.exists(ca_cert_path):
+            # Configurer la connexion sécurisée avec le certificat
+            self.client.tls_set(ca_certs=ca_cert_path, certfile=None, keyfile=None, tls_version=ssl.PROTOCOL_TLSv1_2)
+        else:
+            raise FileNotFoundError(f"Le certificat CA n'a pas été trouvé à l'emplacement : {ca_cert_path}")
+        
+        # Se connecter au broker MQTT en utilisant le port sécurisé 8883
+        self.client.connect(self.broker_url, 8883)
+        self.client.loop_start()
 
     def _get_vrm_broker_url(self):
         """Calculer l'URL du serveur MQTT basé sur l'ID du site."""
@@ -29,87 +39,10 @@ class CerboMQTTClient:
         broker_index = sum % 128
         return f"mqtt{broker_index}.victronenergy.com"
 
-    async def connect(self):
-        """Se connecter au serveur MQTT avec l'URL dynamique et activer TLS sur le port 8883."""
-        if self.is_connected:
-            _LOGGER.info("Le client MQTT est déjà connecté.")
-            return  # Si déjà connecté, ne rien faire
-
-        broker_url = self._get_vrm_broker_url()
-        _LOGGER.info("Tentative de connexion sécurisée au serveur MQTT: %s", broker_url)
-
-        # Spécifier le fichier de certificat CA
-        ca_cert_path = os.path.join(os.path.dirname(__file__), "venus-ca.crt")
-
-        # Configurer la connexion TLS de manière non-bloquante
-        await asyncio.to_thread(self.client.tls_set, ca_certs=ca_cert_path, tls_version=ssl.PROTOCOL_TLSv1_2)
-
-        # Connecter au broker de manière non-bloquante
-        loop = asyncio.get_event_loop()
-        await asyncio.to_thread(self.client.connect, broker_url, 8883, 60)
-
-        # Démarrer la boucle MQTT dans un thread séparé
-        await asyncio.to_thread(self.client.loop_start)
-
-        # Vérifier la connexion
-        await asyncio.sleep(2)
-        if not self.is_connected:
-            _LOGGER.error("Impossible de se connecter au serveur MQTT.")
-            raise ConnectionError("Échec de la connexion au serveur MQTT.")
-
-    def on_connect(self, client, userdata, flags, rc):
-        """Gérer la connexion réussie."""
-        if rc == 0:
-            _LOGGER.info("Connecté au serveur MQTT avec succès.")
-            self.is_connected = True
-            # Une fois connecté, envoyer un message de keepalive
-            self.send_keepalive_message()
-            # S'abonner aux topics des abonnés
-            self._subscribe_to_topics()
-        else:
-            _LOGGER.error("Erreur de connexion MQTT avec code de retour %d", rc)
-            self.is_connected = False
-
-    def send_keepalive_message(self):
-        """Envoyer un message de keepalive sur le topic spécifique à l'id_site."""
-        topic = f"R/{self.id_site}/keepalive"
-        message = "keepalive"
-        try:
-            self.client.publish(topic, message, qos=1)
-            _LOGGER.info("Message de keepalive envoyé sur le topic %s: %s", topic, message)
-        except Exception as e:
-            _LOGGER.error("Erreur lors de l'envoi du message de keepalive: %s", e)
-
-    def on_disconnect(self, client, userdata, rc):
-        """Gérer la déconnexion."""
-        self.is_connected = False
-        if rc != 0:
-            _LOGGER.warning("Déconnexion imprévue du serveur MQTT, code %d", rc)
-
-    def on_message(self, client, userdata, msg):
-        """Gérer la réception des messages."""
-        _LOGGER.info("Message reçu sur le topic %s: %s", msg.topic, msg.payload.decode('utf-8'))
-        
-        # Notifier les abonnés
-        self._notify_subscribers(msg)
-
     def add_subscriber(self, subscriber):
-        """Ajouter un abonné (capteur) à la liste des abonnés et s'abonner au topic approprié."""
-        if subscriber not in self._subscribers:
-            self._subscribers.append(subscriber)
+        """Ajouter un abonné pour recevoir les messages MQTT."""
+        self.client.message_callback_add(subscriber.get_state_topic(), subscriber.on_mqtt_message)
 
-        # S'abonner au topic spécifique si ce n'est pas déjà fait
-        self._subscribe_to_topics()
-
-    def _subscribe_to_topics(self):
-        """S'abonner aux topics de tous les abonnés."""
-        for subscriber in self._subscribers:
-            topic = subscriber.get_state_topic()
-            if topic not in [sub.get_state_topic() for sub in self._subscribers]:
-                _LOGGER.info("Abonnement au topic MQTT: %s", topic)
-                self.client.subscribe(topic)
-
-    def _notify_subscribers(self, msg):
-        """Notifier tous les abonnés du message reçu."""
-        for subscriber in self._subscribers:
-            subscriber.on_mqtt_message(self.client, None, msg)
+    def subscribe(self, topic):
+        """Souscrire à un topic MQTT."""
+        self.client.subscribe(topic)
