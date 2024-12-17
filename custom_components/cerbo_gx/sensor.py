@@ -68,30 +68,17 @@ class CerboBaseSensor(SensorEntity):
     def on_mqtt_message(self, client, userdata, msg):
         """Gérer les messages MQTT reçus."""
         _LOGGER.debug("Message reçu sur le topic %s : %s", msg.topic, msg.payload)
-        
         try:
-            # Décoder le payload JSON
             payload = json.loads(msg.payload)
             _LOGGER.info("Payload décodé : %s", json.dumps(payload, indent=2))
-            
-            # Extraire la valeur spécifique du payload
             value = self._extract_value(payload)
-            
             if value is not None:
-                self._state = value  # Mettre à jour l'état du capteur
-                _LOGGER.info(f"Nouvel état extrait : {value}")
-
-                # Exécuter async_write_ha_state dans le bon event loop (principal)
+                self._state = value
+                # Exécuter async_write_ha_state dans l'event loop principal
                 loop = asyncio.get_event_loop()
-
-                if loop.is_running():  # Si l'event loop est déjà en cours (thread secondaire)
-                    # Utiliser l'event loop de Home Assistant pour s'assurer que la mise à jour se fait dans le thread principal
-                    loop = self.hass.loop  # Utiliser l'event loop principal de Home Assistant
                 asyncio.run_coroutine_threadsafe(self.async_write_ha_state(), loop)
-        
         except Exception as e:
             _LOGGER.error("Erreur lors du traitement du message : %s", e)
-
 
     def _extract_value(self, payload: dict):
         """Extraire la valeur en fonction de la clé spécifique."""
