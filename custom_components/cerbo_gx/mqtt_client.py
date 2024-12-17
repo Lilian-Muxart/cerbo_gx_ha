@@ -32,8 +32,13 @@ class CerboMQTTClient:
             loop.run_in_executor(None, self._configure_tls)
         else:
             raise FileNotFoundError(f"Le certificat CA n'a pas été trouvé à l'emplacement : {self.ca_cert_path}")
-        self.client.on_connect = self.on_connect
+        
+        # Initialisation de la gestion des abonnés
         self.subscribers = []
+        
+        # Callback on_connect
+        self.client.on_connect = self.on_connect
+        self.client.on_message = self.on_message
 
     def _configure_tls(self):
         """Configurer la connexion sécurisée dans un thread séparé."""
@@ -56,6 +61,9 @@ class CerboMQTTClient:
         """Connexion synchrone au broker MQTT (exécutée dans un thread séparé)."""
         self.client.connect(self.broker_url, 8883)
         self.client.loop_start()  # Lance la boucle dans un thread séparé pour ne pas bloquer
+        
+        # Démarre la tâche périodique d'envoi du keepalive
+        asyncio.create_task(self._send_keepalive_periodically())
 
     def disconnect(self):
         """Déconnexion et arrêt de la boucle."""
@@ -67,14 +75,20 @@ class CerboMQTTClient:
         self.client.loop_stop()  # Arrêter la boucle
         self.client.disconnect()
 
+    async def _send_keepalive_periodically(self):
+        """Envoi d'un message de keepalive toutes les 30 secondes."""
+        while True:
+            # Envoi du message de keepalive
+            keepalive_topic = f"R/{self.id_site}/keepalive"
+            self.client.publish(keepalive_topic, "", qos=0)
+            _LOGGER.info(f"Message keepalive envoyé au topic {keepalive_topic}")
+            # Attendre 30 secondes avant de réenvoyer
+            await asyncio.sleep(30)
+
     def on_connect(self, client, userdata, flags, rc):
         """Callback lorsque la connexion au broker MQTT est réussie."""
         if rc == 0:  # Vérifier que la connexion est réussie
             _LOGGER.info(f"Connexion réussie avec le code de retour {rc}")
-            # Envoi du message de keepalive avant la souscription
-            keepalive_topic = f"R/{self.id_site}/keepalive"
-            self.client.publish(keepalive_topic, "", qos=0)
-            _LOGGER.info(f"Message envoyé au topic {keepalive_topic} : ''")
             
             # S'abonner aux topics des abonnés
             self._subscribe_to_topics()
@@ -90,7 +104,7 @@ class CerboMQTTClient:
             _LOGGER.info("Payload décodé : %s", json.dumps(payload, indent=2))
         except json.JSONDecodeError:
             _LOGGER.error("Erreur de décodage du message JSON sur le topic %s", msg.topic)
-            
+
     def add_subscriber(self, subscriber):
         """Ajouter un abonné pour recevoir les messages MQTT."""
         self.subscribers.append(subscriber)
