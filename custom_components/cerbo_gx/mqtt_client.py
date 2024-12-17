@@ -101,12 +101,15 @@ class CerboMQTTClient:
 
     def _schedule_reconnect(self):
         """Planifie une reconnexion toutes les 3 minutes."""
-        # Utiliser le contexte actuel de boucle d'événements (ici on suppose que c'est déjà le bon thread)
-        loop = asyncio.get_running_loop()
-        self.reconnect_timer = loop.call_later(self.reconnect_interval, self.reconnect)
+        loop = asyncio.get_event_loop()  # Utiliser l'event loop du thread principal
+        # Utiliser asyncio.run_coroutine_threadsafe pour exécuter la reconnexion dans le thread principal
+        asyncio.run_coroutine_threadsafe(self._reconnect(), loop)
 
-    def reconnect(self):
+    async def _reconnect(self):
         """Reconnecte le client MQTT."""
         _LOGGER.info("Tentative de reconnexion...")
         self.client.reconnect()
+
+        # Planifier la reconnexion après un délai de 3 minutes
+        await asyncio.sleep(self.reconnect_interval)
         self._schedule_reconnect()  # Répéter la reconnexion toutes les 3 minutes
