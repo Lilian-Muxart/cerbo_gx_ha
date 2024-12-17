@@ -68,11 +68,11 @@ class CerboMQTTClient:
                 _LOGGER.info(f"Réabonnement au topic : {topic}")
 
             # Démarrer la tâche de keep-alive
-            asyncio.create_task(self._keep_alive(keepalive_topic))
+            asyncio.run(self._start_keep_alive(keepalive_topic))
         else:
             _LOGGER.error(f"Erreur de connexion avec le code de retour {rc}")
 
-    async def _keep_alive(self, topic):
+    async def _start_keep_alive(self, topic):
         while True:
             await asyncio.sleep(30)
             self.client.publish(topic, "", qos=0)
