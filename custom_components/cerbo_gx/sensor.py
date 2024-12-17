@@ -74,10 +74,8 @@ class CerboBaseSensor(SensorEntity):
             if value is not None:
                 self._state = value
                 _LOGGER.info(f"État mis à jour pour {self._attr_name} : {self._state}")
-                # Exécuter async_write_ha_state dans l'event loop principal
-                hass = self.hass
-                loop = hass.loop
-                asyncio.run_coroutine_threadsafe(self.async_write_ha_state(), loop)
+                # Utiliser hass.async_add_job pour exécuter la mise à jour dans le thread principal
+                self.hass.async_add_job(self.async_write_ha_state)
             else:
                 _LOGGER.warning(f"Valeur non trouvée dans le payload pour {self._attr_name}")
         except Exception as e:
