@@ -30,9 +30,11 @@ class CerboMQTTClient:
         self.subscriptions = {}  # Dictionnaire pour gérer les abonnements par topic
 
     def _configure_tls(self):
+        """Configure TLS pour la connexion MQTT."""
         self.client.tls_set(ca_certs=self.ca_cert_path, certfile=None, keyfile=None, tls_version=ssl.PROTOCOL_TLSv1_2)
 
     def _get_vrm_broker_url(self):
+        """Générer l'URL du courtier MQTT basé sur l'ID du site."""
         sum = 0
         for character in self.id_site.lower().strip():
             sum += ord(character)
@@ -40,22 +42,26 @@ class CerboMQTTClient:
         return f"mqtt{broker_index}.victronenergy.com"
 
     def connect(self):
+        """Connexion synchrone au broker MQTT et démarrer la boucle."""
         loop = asyncio.get_event_loop()
         loop.run_in_executor(None, self._connect_sync)
         loop.create_task(self._keep_alive())
 
     def _connect_sync(self):
+        """Connexion synchronisée au broker MQTT."""
         try:
             self.client.connect(self.broker_url, 8883)
             self.client.loop_start()
         except Exception as e:
-            _LOGGER.error(f"Erreur lors de la connexion : {e}")
+            _LOGGER.error(f"Erreur lors de la connexion au serveur MQTT : {e}")
 
     def disconnect(self):
+        """Déconnexion du serveur MQTT."""
         loop = asyncio.get_event_loop()
         loop.run_in_executor(None, self._disconnect_sync)
 
     def _disconnect_sync(self):
+        """Déconnexion synchronisée du serveur MQTT."""
         try:
             self.client.loop_stop()
             self.client.disconnect()
@@ -63,6 +69,7 @@ class CerboMQTTClient:
             _LOGGER.error(f"Erreur lors de la déconnexion : {e}")
 
     def on_connect(self, client, userdata, flags, rc):
+        """Gestion de l'événement de connexion au broker MQTT."""
         if rc == 0:
             _LOGGER.info(f"Connexion réussie avec le code de retour {rc}")
             keepalive_topic = f"R/{self.id_site}/keepalive"
@@ -109,8 +116,41 @@ class CerboMQTTClient:
                 _LOGGER.error(f"Callback non trouvé pour le topic : {topic}")
 
     async def _keep_alive(self):
+        """Envoie régulièrement des messages de keep-alive."""
         while True:
             await asyncio.sleep(30)
             keepalive_topic = f"R/{self.id_site}/keepalive"
             self.client.publish(keepalive_topic, "", qos=0)
             _LOGGER.info(f"Message de keep-alive envoyé au topic {keepalive_topic} : ''")
+
+
+class MQTTManager:
+    def __init__(self):
+        self.clients = {}
+
+    def add_device(self, id_site, client_id=None, username=None, password=None):
+        """Ajoute un client MQTT pour un périphérique avec un ID unique."""
+        if id_site not in self.clients:
+            self.clients[id_site] = CerboMQTTClient(
+                id_site=id_site,
+                client_id=client_id,
+                username=username,
+                password=password,
+            )
+            self.clients[id_site].connect()
+            _LOGGER.info(f"Client MQTT ajouté pour le site {id_site}")
+        else:
+            _LOGGER.warning(f"Le client MQTT pour le site {id_site} existe déjà.")
+
+    def get_client(self, id_site):
+        """Récupère un client MQTT pour un site donné."""
+        return self.clients.get(id_site)
+
+    def remove_device(self, id_site):
+        """Supprime un client MQTT pour un périphérique donné."""
+        if id_site in self.clients:
+            self.clients[id_site].disconnect()
+            del self.clients[id_site]
+            _LOGGER.info(f"Client MQTT pour le site {id_site} supprimé.")
+        else:
+            _LOGGER.warning(f"Le client MQTT pour le site {id_site} n'existe pas.")

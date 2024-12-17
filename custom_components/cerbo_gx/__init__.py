@@ -3,11 +3,14 @@ from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.const import Platform
-from .mqtt_client import CerboMQTTClient
+from .mqtt_client import MQTTManager
 
 DOMAIN = "cerbo_gx"
 PLATFORMS = [Platform.SENSOR]
 _LOGGER = logging.getLogger(__name__)
+
+# Instancier le gestionnaire de clients MQTT
+mqtt_manager = MQTTManager()
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Configurer l'intégration Cerbo GX."""
@@ -24,23 +27,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     username = entry.data["username"]
     password = entry.data["password"]
 
-    # Initialisation du client MQTT avec les données de configuration
-    mqtt_client = CerboMQTTClient(
-        id_site=id_site,
-        username=username,
-        password=password,
-    )
-
+    # Ajouter un client MQTT via le gestionnaire
     try:
-        # Connexion au serveur MQTT (synchrone)
-        mqtt_client.connect()  # Appel synchrone
+        # Ajouter le client avec l'ID du site et les informations de connexion
+        mqtt_manager.add_device(id_site, client_id=device_name, username=username, password=password)
         _LOGGER.info("Connexion au serveur MQTT réussie pour %s", device_name)
     except Exception as e:
-        _LOGGER.error("Échec de la connexion au serveur MQTT: %s", str(e))
+        _LOGGER.error("Échec de la connexion au serveur MQTT pour %s : %s", device_name, str(e))
         return False
 
     # Stocker le client MQTT dans l'intégration
-    hass.data[DOMAIN][entry.entry_id]["mqtt_client"] = mqtt_client
+    hass.data[DOMAIN][entry.entry_id]["mqtt_client"] = mqtt_manager.get_client(id_site)
 
     # Configurer les entités associées via la plateforme "sensor"
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
