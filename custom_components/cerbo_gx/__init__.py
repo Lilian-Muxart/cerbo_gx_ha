@@ -36,7 +36,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         _LOGGER.error("Échec de la connexion au serveur MQTT pour %s : %s", device_name, str(e))
         return False
 
-    # Stocker le client MQTT dans l'intégration
+    # Stocker le client MQTT dans l'intégration sous l'entry_id
     hass.data[DOMAIN][entry.entry_id]["mqtt_client"] = mqtt_manager.get_client(id_site)
 
     # Configurer les entités associées via la plateforme "sensor"

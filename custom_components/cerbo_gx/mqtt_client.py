@@ -42,7 +42,7 @@ class CerboMQTTClient:
         return f"mqtt{broker_index}.victronenergy.com"
 
     def connect(self):
-        """Connexion synchrone au broker MQTT et démarrer la boucle."""
+        """Connexion au broker MQTT avec démarrage de la boucle de gestion des événements."""
         loop = asyncio.get_event_loop()
         loop.run_in_executor(None, self._connect_sync)
         loop.create_task(self._keep_alive())
@@ -51,7 +51,7 @@ class CerboMQTTClient:
         """Connexion synchronisée au broker MQTT."""
         try:
             self.client.connect(self.broker_url, 8883)
-            self.client.loop_start()
+            self.client.loop_start()  # Chaque client a sa propre boucle
         except Exception as e:
             _LOGGER.error(f"Erreur lors de la connexion au serveur MQTT : {e}")
 
