@@ -43,7 +43,7 @@ class CerboBaseSensor(SensorEntity):
     def __init__(self, device_name: str, id_site: str, mqtt_client: CerboMQTTClient, state_topic: str, value_key: str):
         self._device_name = device_name
         self._id_site = id_site
-        self._state = None
+        self._state = "N/A"
         self._mqtt_client = mqtt_client
         self._state_topic = state_topic
         self._value_key = value_key
