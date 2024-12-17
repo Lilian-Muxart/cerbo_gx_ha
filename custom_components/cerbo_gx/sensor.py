@@ -8,7 +8,6 @@ from homeassistant.core import HomeAssistant
 from . import DOMAIN
 import asyncio
 
-
 _LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(hass: HomeAssistantType, entry, async_add_entities) -> None:
@@ -74,9 +73,12 @@ class CerboBaseSensor(SensorEntity):
             value = self._extract_value(payload)
             if value is not None:
                 self._state = value
+                _LOGGER.info(f"État mis à jour pour {self._attr_name} : {self._state}")
                 # Exécuter async_write_ha_state dans l'event loop principal
-                loop = asyncio.get_event_loop()
+                loop = asyncio.get_running_loop()
                 asyncio.run_coroutine_threadsafe(self.async_write_ha_state(), loop)
+            else:
+                _LOGGER.warning(f"Valeur non trouvée dans le payload pour {self._attr_name}")
         except Exception as e:
             _LOGGER.error("Erreur lors du traitement du message : %s", e)
 
