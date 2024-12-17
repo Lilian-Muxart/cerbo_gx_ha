@@ -55,11 +55,12 @@ class CerboBaseSensor(SensorEntity):
         }
 
     async def async_added_to_hass(self):
+        """Abonnez-vous aux messages MQTT lorsque l'entité est ajoutée."""
         _LOGGER.info("Abonnement au topic MQTT pour %s", self._attr_name)
         self._mqtt_client.add_subscription(self.get_state_topic(), self.on_mqtt_message)
 
     async def async_will_remove_from_hass(self):
-        """Nettoyage des abonnements lors de la suppression de l'entité."""
+        """Désabonnez-vous des messages MQTT lorsque l'entité est retirée."""
         _LOGGER.info("Désabonnement du topic MQTT pour %s", self._attr_name)
         self._mqtt_client.remove_subscription(self.get_state_topic(), self.on_mqtt_message)
 
