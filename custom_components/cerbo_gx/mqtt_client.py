@@ -2,8 +2,8 @@ import paho.mqtt.client as mqtt
 import ssl
 import os
 import asyncio
-import json
 import logging
+import json
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -15,51 +15,47 @@ class CerboMQTTClient:
         self.client = mqtt.Client(client_id)
         self.username = username
         self.password = password
-        self.subscribers = {}  # Dictionnaire pour gérer les abonnés par topic
-
+        
         # Calculer l'URL du broker basé sur l'ID du site
         self.broker_url = self._get_vrm_broker_url()
 
         # Configuration de l'authentification MQTT (si les informations sont disponibles)
         if self.username and self.password:
             self.client.username_pw_set(self.username, self.password)
-
+        
         # Spécification du chemin du certificat CA par défaut
         self.ca_cert_path = os.path.join(os.path.dirname(__file__), "venus-ca.crt")
-
+        
         # Vérification de l'existence du certificat
         if os.path.exists(self.ca_cert_path):
-            self._configure_tls()
+            # Assurez-vous que tls_set est exécuté dans un thread séparé pour ne pas bloquer Home Assistant
+            loop = asyncio.get_event_loop()
+            loop.run_in_executor(None, self._configure_tls)
         else:
             raise FileNotFoundError(f"Le certificat CA n'a pas été trouvé à l'emplacement : {self.ca_cert_path}")
-
-        self.client.on_connect = self._on_connect
-        self.client.on_message = self._on_message
+        self.client.on_connect = self.on_connect
 
     def _configure_tls(self):
-        """Configurer la connexion sécurisée."""
-        self.client.tls_set(
-            ca_certs=self.ca_cert_path,
-            certfile=None,
-            keyfile=None,
-            tls_version=ssl.PROTOCOL_TLSv1_2
-        )
+        """Configurer la connexion sécurisée dans un thread séparé."""
+        self.client.tls_set(ca_certs=self.ca_cert_path, certfile=None, keyfile=None, tls_version=ssl.PROTOCOL_TLSv1_2)
 
     def _get_vrm_broker_url(self):
         """Calculer l'URL du serveur MQTT basé sur l'ID du site."""
-        sum_ = sum(ord(char) for char in self.id_site.lower().strip())
-        broker_index = sum_ % 128
+        sum = 0
+        for character in self.id_site.lower().strip():
+            sum += ord(character)
+        broker_index = sum % 128
         return f"mqtt{broker_index}.victronenergy.com"
 
     def connect(self):
-        """Connexion au broker MQTT."""
+        """Connexion au broker MQTT (asynchrone)."""
         loop = asyncio.get_event_loop()
         loop.run_in_executor(None, self._connect_sync)
 
     def _connect_sync(self):
         """Connexion synchrone au broker MQTT (exécutée dans un thread séparé)."""
         self.client.connect(self.broker_url, 8883)
-        self.client.loop_start()  # Lance la boucle dans un thread séparé
+        self.client.loop_start()  # Lance la boucle dans un thread séparé pour ne pas bloquer
 
     def disconnect(self):
         """Déconnexion et arrêt de la boucle."""
@@ -68,30 +64,25 @@ class CerboMQTTClient:
 
     def _disconnect_sync(self):
         """Déconnexion synchrone du broker MQTT."""
-        self.client.loop_stop()
+        self.client.loop_stop()  # Arrêter la boucle
         self.client.disconnect()
-
-    def _on_connect(self, client, userdata, flags, rc):
+    
+    def on_connect(self, client, userdata, flags, rc):
         """Callback lorsque la connexion au broker MQTT est réussie."""
-        if rc == 0:
-            _LOGGER.info("Connexion réussie au broker MQTT.")
+        if rc == 0:  # Vérifier que la connexion est réussie
+            _LOGGER.info(f"Connexion réussie avec le code de retour {rc}")
+            # Envoi du message de keepalive après connexion
+            keepalive_topic = f"R/{self.id_site}/keepalive"
+            self.client.publish(keepalive_topic, "", qos=0)
+            _LOGGER.info(f"Message envoyé au topic {keepalive_topic} : ''")
         else:
-            _LOGGER.error(f"Échec de la connexion au broker MQTT, code de retour : {rc}")
+            _LOGGER.error(f"Erreur de connexion avec le code de retour {rc}")
 
-    def _on_message(self, client, userdata, msg):
-        """Callback pour gérer les messages MQTT."""
-        try:
-            payload = json.loads(msg.payload)
-            _LOGGER.info("Message reçu sur %s: %s", msg.topic, json.dumps(payload, indent=2))
-            if msg.topic in self.subscribers:
-                for subscriber in self.subscribers[msg.topic]:
-                    subscriber.handle_message(payload)
-        except Exception as e:
-            _LOGGER.error("Erreur de traitement du message MQTT sur %s: %s", msg.topic, e)
 
-    def add_subscriber(self, topic, subscriber):
-        """Ajouter un abonné à un topic."""
-        if topic not in self.subscribers:
-            self.subscribers[topic] = []
-            self.client.subscribe(topic)
-        self.subscribers[topic].append(subscriber)
+    def add_subscriber(self, subscriber):
+        """Ajouter un abonné pour recevoir les messages MQTT."""
+        self.client.message_callback_add(subscriber.get_state_topic(), subscriber.on_mqtt_message)
+
+    def subscribe(self, topic):
+        """Souscrire à un topic MQTT."""
+        self.client.subscribe(topic)
