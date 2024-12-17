@@ -67,9 +67,10 @@ class CerboBaseSensor(SensorEntity):
 
     def on_mqtt_message(self, client, userdata, msg):
         """Gérer les messages MQTT reçus."""
+        _LOGGER.debug("Message reçu sur le topic %s : %s", msg.topic, msg.payload)
         try:
             payload = json.loads(msg.payload)
-            _LOGGER.info("Message reçu sur %s: %s", msg.topic, json.dumps(payload, indent=2))
+            _LOGGER.info("Payload décodé : %s", json.dumps(payload, indent=2))
             value = self._extract_value(payload)
             if value is not None:
                 self._state = value
@@ -77,9 +78,8 @@ class CerboBaseSensor(SensorEntity):
                 # Exécuter async_write_ha_state dans l'event loop principal
                 loop = asyncio.get_event_loop()
                 asyncio.run_coroutine_threadsafe(self.async_write_ha_state(), loop)
-
         except Exception as e:
-            _LOGGER.error("Erreur de traitement du message MQTT pour %s: %s", self._attr_name, e)
+            _LOGGER.error("Erreur lors du traitement du message : %s", e)
 
     def _extract_value(self, payload: dict):
         """Extraire la valeur en fonction de la clé spécifique."""
