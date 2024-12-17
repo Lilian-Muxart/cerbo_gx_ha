@@ -74,14 +74,6 @@ class CerboMQTTClient:
             keepalive_topic = f"R/{self.id_site}/keepalive"
             self.client.publish(keepalive_topic, "", qos=0)
             _LOGGER.info(f"Message envoyé au topic {keepalive_topic} : ''")
-            
-            # Souscription aux topics après l'envoi du keepalive
-            topics = [
-                f"N/{self.id_site}/system/0/Batteries"
-            ]
-            for topic in topics:
-                self.subscribe(topic)
-                _LOGGER.info(f"Souscription au topic après connexion : {topic}")
         else:
             _LOGGER.error(f"Erreur de connexion avec le code de retour {rc}")
 
