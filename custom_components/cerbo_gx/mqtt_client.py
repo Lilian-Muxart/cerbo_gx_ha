@@ -66,8 +66,17 @@ class CerboMQTTClient:
             for topic in self.subscriptions.keys():
                 self.client.subscribe(topic)
                 _LOGGER.info(f"Réabonnement au topic : {topic}")
+
+            # Démarrer la tâche de keep-alive
+            asyncio.create_task(self._keep_alive(keepalive_topic))
         else:
             _LOGGER.error(f"Erreur de connexion avec le code de retour {rc}")
+
+    async def _keep_alive(self, topic):
+        while True:
+            await asyncio.sleep(30)
+            self.client.publish(topic, "", qos=0)
+            _LOGGER.info(f"Keep-alive message sent to topic {topic}")
 
     def _on_global_message(self, client, userdata, msg):
         """Gestionnaire global pour tous les messages reçus."""
