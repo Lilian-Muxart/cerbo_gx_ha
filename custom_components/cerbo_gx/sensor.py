@@ -95,8 +95,9 @@ class CerboBaseSensor(SensorEntity):
 
     def get_state_topic(self):
         """Retourner le topic d'état du capteur."""
-        return self._state_topic
-
+        topic = self._state_topic
+        _LOGGER.debug("get_state_topic appelé, topic retourné : %s", topic)
+        return topic
 
 class CerboBatterySensor(CerboBaseSensor):
     """Capteur pour la batterie du Cerbo GX."""
