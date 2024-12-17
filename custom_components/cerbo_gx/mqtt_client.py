@@ -81,8 +81,21 @@ class CerboMQTTClient:
 
     def add_subscriber(self, subscriber):
         """Ajouter un abonné pour recevoir les messages MQTT."""
-        self.client.message_callback_add(subscriber.get_state_topic(), subscriber.on_mqtt_message)
+        topic = subscriber.get_state_topic()
+        callback = subscriber.on_mqtt_message
+
+        # Log des informations importantes
+        _LOGGER.debug("Ajout d'un abonné : topic=%s, callback=%s", topic, callback)
+
+        # Ajout du callback pour le topic
+        self.client.message_callback_add(topic, callback)
+
 
     def subscribe(self, topic):
         """Souscrire à un topic MQTT."""
-        self.client.subscribe(topic)
+        _LOGGER.debug("Souscription au topic : %s", topic)
+        result, mid = self.client.subscribe(topic)
+        if result == mqtt.MQTT_ERR_SUCCESS:
+            _LOGGER.info("Souscription réussie au topic : %s (MID: %s)", topic, mid)
+        else:
+            _LOGGER.error("Échec de la souscription au topic : %s (Code d'erreur : %s)", topic, result)
