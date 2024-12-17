@@ -7,7 +7,6 @@ import json
 
 _LOGGER = logging.getLogger(__name__)
 
-
 class CerboMQTTClient:
     def __init__(self, id_site, client_id=None, username=None, password=None):
         """Initialisation du client MQTT."""
@@ -71,13 +70,20 @@ class CerboMQTTClient:
         """Callback lorsque la connexion au broker MQTT est réussie."""
         if rc == 0:  # Vérifier que la connexion est réussie
             _LOGGER.info(f"Connexion réussie avec le code de retour {rc}")
-            # Envoi du message de keepalive après connexion
+            # Envoi du message de keepalive avant la souscription
             keepalive_topic = f"R/{self.id_site}/keepalive"
             self.client.publish(keepalive_topic, "", qos=0)
             _LOGGER.info(f"Message envoyé au topic {keepalive_topic} : ''")
+            
+            # Souscription aux topics après l'envoi du keepalive
+            topics = [
+                f"N/{self.id_site}/system/0/Batteries"
+            ]
+            for topic in topics:
+                self.subscribe(topic)
+                _LOGGER.info(f"Souscription au topic après connexion : {topic}")
         else:
             _LOGGER.error(f"Erreur de connexion avec le code de retour {rc}")
-
 
     def on_message(self, client, userdata, msg):
         """Callback global pour recevoir tous les messages MQTT."""
@@ -98,7 +104,6 @@ class CerboMQTTClient:
 
         # Ajout du callback pour le topic
         self.client.message_callback_add(topic, callback)
-
 
     def subscribe(self, topic):
         """Souscrire à un topic MQTT."""
