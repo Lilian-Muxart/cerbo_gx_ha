@@ -107,7 +107,7 @@ class CerboBatterySensor(CerboBaseSensor):
         value_key = "soc"  # Nous voulons extraire la charge de la batterie
         super().__init__(device_name, id_site, mqtt_client, state_topic, value_key)
         self._attr_name = f"{device_name} Battery"
-        self._attr_unique_id = f"{id_site}_battery_percent"
+        self._attr_unique_id = f"{id_site}_battery"
         self._attr_device_class = SensorDeviceClass.BATTERY
         self._attr_native_unit_of_measurement = "%"
 
