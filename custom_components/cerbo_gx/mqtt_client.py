@@ -17,20 +17,20 @@ class CerboMQTTClient:
 
         if self.username and self.password:
             self.client.username_pw_set(self.username, self.password)
-
+        
         self.ca_cert_path = os.path.join(os.path.dirname(__file__), "venus-ca.crt")
         if os.path.exists(self.ca_cert_path):
-            # Initialiser la configuration TLS de manière asynchrone
-            asyncio.ensure_future(self._configure_tls())
+            loop = asyncio.get_event_loop()
+            loop.run_in_executor(None, self._configure_tls)
         else:
             raise FileNotFoundError(f"Le certificat CA n'a pas été trouvé à l'emplacement : {self.ca_cert_path}")
-
-        # Initialiser les callbacks
+        
         self.client.on_connect = self.on_connect
         self.client.on_message = self._on_global_message
         self.subscriptions = {}  # Dictionnaire pour gérer les abonnements par topic
 
-        self.keepalive_interval = 30  # Intervalle pour l'envoi de keepalive en secondes
+    def _configure_tls(self):
+        self.client.tls_set(ca_certs=self.ca_cert_path, certfile=None, keyfile=None, tls_version=ssl.PROTOCOL_TLSv1_2)
 
     def _get_vrm_broker_url(self):
         sum = 0
@@ -39,45 +39,32 @@ class CerboMQTTClient:
         broker_index = sum % 128
         return f"mqtt{broker_index}.victronenergy.com"
 
-    async def _configure_tls(self):
-        """Configurer TLS de manière asynchrone"""
+    def connect(self):
         loop = asyncio.get_event_loop()
-        # Utilisation du gestionnaire TLS
-        self.client.tls_set(ca_certs=self.ca_cert_path, certfile=None, keyfile=None, tls_version=ssl.PROTOCOL_TLSv1_2)
-        _LOGGER.info("TLS configuré avec succès.")
+        loop.run_in_executor(None, self._connect_sync)
 
-    async def connect(self):
-        """Méthode asynchrone pour se connecter au broker."""
-        _LOGGER.info("Tentative de connexion...")
-        self.client.connect(self.broker_url, 8883, 60)  # Keepalive de 60 secondes
+    def _connect_sync(self):
+        self.client.connect(self.broker_url, 8883)
         self.client.loop_start()
 
-        # Start the keepalive timer
-        await self._start_keepalive_timer()
+    def disconnect(self):
+        loop = asyncio.get_event_loop()
+        loop.run_in_executor(None, self._disconnect_sync)
 
-    async def _start_keepalive_timer(self):
-        """Lance un timer pour envoyer un keepalive toutes les 30 secondes."""
-        while True:
-            await asyncio.sleep(self.keepalive_interval)
-            await self.send_keepalive()
-
-    async def send_keepalive(self):
-        """Envoie un message keepalive au topic."""
-        keepalive_topic = f"R/{self.id_site}/keepalive"
-        self.client.publish(keepalive_topic, "", qos=0)
-        _LOGGER.info(f"Message envoyé au topic {keepalive_topic} : ''")
-
-    async def disconnect(self):
-        """Méthode asynchrone pour se déconnecter proprement."""
+    def _disconnect_sync(self):
         self.client.loop_stop()
         self.client.disconnect()
 
     def on_connect(self, client, userdata, flags, rc):
         if rc == 0:
             _LOGGER.info(f"Connexion réussie avec le code de retour {rc}")
-            # Réabonner tous les topics après la connexion
+            keepalive_topic = f"R/{self.id_site}/keepalive"
+            self.client.publish(keepalive_topic, "", qos=0)
+            _LOGGER.info(f"Message envoyé au topic {keepalive_topic} : ''")
+
+            # Réabonner tous les topics
             for topic in self.subscriptions.keys():
-                client.subscribe(topic)
+                self.client.subscribe(topic)
                 _LOGGER.info(f"Réabonnement au topic : {topic}")
         else:
             _LOGGER.error(f"Erreur de connexion avec le code de retour {rc}")
@@ -89,7 +76,7 @@ class CerboMQTTClient:
             for callback in self.subscriptions[msg.topic]:
                 callback(client, userdata, msg)
 
-    async def add_subscription(self, topic, callback):
+    def add_subscription(self, topic, callback):
         """Ajoute un abonnement MQTT avec un callback."""
         if topic not in self.subscriptions:
             self.subscriptions[topic] = []
@@ -99,7 +86,7 @@ class CerboMQTTClient:
         self.subscriptions[topic].append(callback)
         self.client.message_callback_add(topic, self._on_global_message)
 
-    async def remove_subscription(self, topic, callback):
+    def remove_subscription(self, topic, callback):
         """Supprime un abonnement MQTT et son callback."""
         if topic in self.subscriptions:
             try:
