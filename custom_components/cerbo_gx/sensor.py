@@ -43,7 +43,7 @@ class CerboBaseSensor(SensorEntity):
     def __init__(self, device_name: str, id_site: str, mqtt_client: CerboMQTTClient, state_topic: str, value_key: str):
         self._device_name = device_name
         self._id_site = id_site
-        self._state = "N/A"
+        self._state = None
         self._mqtt_client = mqtt_client
         self._state_topic = state_topic
         self._value_key = value_key
@@ -69,8 +69,6 @@ class CerboBaseSensor(SensorEntity):
         try:
             if not msg.payload:
                 _LOGGER.warning("Message vide reçu sur le topic %s", msg.topic)
-                self._state = "N/A"
-                self.hass.loop.call_soon_threadsafe(self.async_write_ha_state)
                 return
             
             payload = json.loads(msg.payload)
@@ -79,27 +77,21 @@ class CerboBaseSensor(SensorEntity):
             
             if value is not None:
                 self._state = value
+                self.hass.loop.call_soon_threadsafe(self.async_write_ha_state)
             else:
-                self._state = "N/A"
                 _LOGGER.warning(f"Valeur non trouvée dans le payload pour {self._attr_name}")
-            
-            self.hass.loop.call_soon_threadsafe(self.async_write_ha_state)
         
         except json.JSONDecodeError as e:
             _LOGGER.error(f"Erreur de décodage du message JSON sur le topic {msg.topic}: {e}")
-            self._state = "N/A"
-            self.hass.loop.call_soon_threadsafe(self.async_write_ha_state)
         except Exception as e:
             _LOGGER.error("Erreur lors du traitement du message : %s", e)
-            self._state = "N/A"
-            self.hass.loop.call_soon_threadsafe(self.async_write_ha_state)
 
     def _extract_value(self, payload: dict):
         if "value" in payload and isinstance(payload["value"], list) and len(payload["value"]) > 0:
             sensor_data = payload["value"][0]
             if self._value_key in sensor_data:
                 return sensor_data[self._value_key]
-        return 0
+        return None
 
     @property
     def state(self):
