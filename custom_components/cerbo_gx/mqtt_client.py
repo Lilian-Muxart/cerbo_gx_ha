@@ -28,9 +28,6 @@ class CerboMQTTClient:
         self.client.on_connect = self.on_connect
         self.client.on_message = self._on_global_message
         self.subscriptions = {}  # Dictionnaire pour gérer les abonnements par topic
-        
-        self.reconnect_interval = 180  # Intervalle de reconnexion en secondes (3 minutes)
-        self.reconnect_timer = None  # Timer pour la reconnexion automatique
 
     def _configure_tls(self):
         self.client.tls_set(ca_certs=self.ca_cert_path, certfile=None, keyfile=None, tls_version=ssl.PROTOCOL_TLSv1_2)
@@ -49,9 +46,14 @@ class CerboMQTTClient:
     def _connect_sync(self):
         self.client.connect(self.broker_url, 8883)
         self.client.loop_start()
-        
-        # Planifier la reconnexion toutes les 3 minutes
-        self._schedule_reconnect()
+
+    def disconnect(self):
+        loop = asyncio.get_event_loop()
+        loop.run_in_executor(None, self._disconnect_sync)
+
+    def _disconnect_sync(self):
+        self.client.loop_stop()
+        self.client.disconnect()
 
     def on_connect(self, client, userdata, flags, rc):
         if rc == 0:
@@ -98,18 +100,3 @@ class CerboMQTTClient:
 
             except ValueError:
                 _LOGGER.error(f"Callback non trouvé pour le topic : {topic}")
-
-    def _schedule_reconnect(self):
-        """Planifie une reconnexion toutes les 3 minutes."""
-        loop = asyncio.get_event_loop()  # Utiliser l'event loop du thread principal
-        # Utiliser asyncio.run_coroutine_threadsafe pour exécuter la reconnexion dans le thread principal
-        asyncio.run_coroutine_threadsafe(self._reconnect(), loop)
-
-    async def _reconnect(self):
-        """Reconnecte le client MQTT."""
-        _LOGGER.info("Tentative de reconnexion...")
-        self.client.reconnect()
-
-        # Planifier la reconnexion après un délai de 3 minutes
-        await asyncio.sleep(self.reconnect_interval)
-        self._schedule_reconnect()  # Répéter la reconnexion toutes les 3 minutes
