@@ -67,16 +67,28 @@ class CerboBaseSensor(SensorEntity):
         """Gérer les messages MQTT reçus."""
         _LOGGER.debug("Message reçu sur le topic %s : %s", msg.topic, msg.payload)
         try:
+            # Vérification si le payload est vide
+            if not msg.payload:
+                _LOGGER.warning("Message vide reçu sur le topic %s", msg.topic)
+                return  # Quitter la fonction si le payload est vide
+            
+            # Tentative de décodage du JSON
             payload = json.loads(msg.payload)
             _LOGGER.info("Payload décodé : %s", json.dumps(payload, indent=2))
+            
+            # Extraction de la valeur spécifique
             value = self._extract_value(payload)
+            
             if value is not None:
                 self._state = value
                 _LOGGER.info(f"État mis à jour pour {self._attr_name} : {self._state}")
-                # Utiliser self.hass.loop.call_soon_threadsafe pour remplacer async_add_job
-                self.hass.loop.call_soon_threadsafe(self.async_write_ha_state)  # Assure que ça s'exécute dans la boucle principale
+                # Utilisation de call_soon_threadsafe pour éviter async_add_job
+                self.hass.loop.call_soon_threadsafe(self.async_write_ha_state)
             else:
                 _LOGGER.warning(f"Valeur non trouvée dans le payload pour {self._attr_name}")
+        
+        except json.JSONDecodeError as e:
+            _LOGGER.error(f"Erreur de décodage du message JSON sur le topic {msg.topic}: {e}")
         except Exception as e:
             _LOGGER.error("Erreur lors du traitement du message : %s", e)
 
@@ -87,7 +99,7 @@ class CerboBaseSensor(SensorEntity):
             if self._value_key in sensor_data:
                 return sensor_data[self._value_key]
         return None
-
+    
     @property
     def state(self):
         return self._state
