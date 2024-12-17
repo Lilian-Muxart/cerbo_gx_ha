@@ -40,6 +40,9 @@ class CerboMQTTClient:
         self.client.on_connect = self.on_connect
         self.client.on_message = self.on_message
 
+        # Attribut pour vérifier si le client est connecté
+        self._connected = False
+
     def _configure_tls(self):
         """Configurer la connexion sécurisée dans un thread séparé."""
         self.client.tls_set(ca_certs=self.ca_cert_path, certfile=None, keyfile=None, tls_version=ssl.PROTOCOL_TLSv1_2)
@@ -61,9 +64,6 @@ class CerboMQTTClient:
         """Connexion synchrone au broker MQTT (exécutée dans un thread séparé)."""
         self.client.connect(self.broker_url, 8883)
         self.client.loop_start()  # Lance la boucle dans un thread séparé pour ne pas bloquer
-        
-        # Démarre la tâche périodique d'envoi du keepalive
-        asyncio.create_task(self._send_keepalive_periodically())
 
     def disconnect(self):
         """Déconnexion et arrêt de la boucle."""
@@ -77,7 +77,7 @@ class CerboMQTTClient:
 
     async def _send_keepalive_periodically(self):
         """Envoi d'un message de keepalive toutes les 30 secondes."""
-        while True:
+        while self._connected:
             # Envoi du message de keepalive
             keepalive_topic = f"R/{self.id_site}/keepalive"
             self.client.publish(keepalive_topic, "", qos=0)
@@ -90,11 +90,18 @@ class CerboMQTTClient:
         if rc == 0:  # Vérifier que la connexion est réussie
             _LOGGER.info(f"Connexion réussie avec le code de retour {rc}")
             
+            # Indiquer que la connexion est établie
+            self._connected = True
+
+            # Démarrer l'envoi périodique du message keepalive après la connexion
+            loop = asyncio.get_event_loop()
+            loop.create_task(self._send_keepalive_periodically())
+
             # S'abonner aux topics des abonnés
             self._subscribe_to_topics()
-
         else:
             _LOGGER.error(f"Erreur de connexion avec le code de retour {rc}")
+            self._connected = False  # La connexion a échoué, on marque comme déconnecté
 
     def on_message(self, client, userdata, msg):
         """Callback global pour recevoir tous les messages MQTT."""
