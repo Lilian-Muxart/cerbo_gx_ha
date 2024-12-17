@@ -27,6 +27,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     username = entry.data["username"]
     password = entry.data["password"]
 
+    # Vérifier si un client MQTT existe déjà pour ce site
+    existing_client = mqtt_manager.get_client(id_site)
+    if existing_client:
+        _LOGGER.warning(f"Le client MQTT pour le site {id_site} existe déjà. Suppression et recréation.")
+        # Si un client existe, le supprimer avant de le recréer
+        mqtt_manager.remove_device(id_site)
+
     # Ajouter un client MQTT via le gestionnaire
     try:
         # Ajouter le client avec l'ID du site et les informations de connexion

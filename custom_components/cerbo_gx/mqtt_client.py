@@ -130,17 +130,19 @@ class MQTTManager:
 
     def add_device(self, id_site, client_id=None, username=None, password=None):
         """Ajoute un client MQTT pour un périphérique avec un ID unique."""
-        if id_site not in self.clients:
-            self.clients[id_site] = CerboMQTTClient(
-                id_site=id_site,
-                client_id=client_id,
-                username=username,
-                password=password,
-            )
-            self.clients[id_site].connect()
-            _LOGGER.info(f"Client MQTT ajouté pour le site {id_site}")
-        else:
-            _LOGGER.warning(f"Le client MQTT pour le site {id_site} existe déjà.")
+        if id_site in self.clients:
+            _LOGGER.warning(f"Le client MQTT pour le site {id_site} existe déjà. Suppression et recréation.")
+            self.remove_device(id_site)  # Supprimer l'ancien client avant de le recréer
+
+        # Créer un nouveau client
+        self.clients[id_site] = CerboMQTTClient(
+            id_site=id_site,
+            client_id=client_id,
+            username=username,
+            password=password,
+        )
+        self.clients[id_site].connect()
+        _LOGGER.info(f"Client MQTT ajouté pour le site {id_site}")
 
     def get_client(self, id_site):
         """Récupère un client MQTT pour un site donné."""
@@ -149,8 +151,9 @@ class MQTTManager:
     def remove_device(self, id_site):
         """Supprime un client MQTT pour un périphérique donné."""
         if id_site in self.clients:
+            _LOGGER.info(f"Suppression du client MQTT pour le site {id_site}")
             self.clients[id_site].disconnect()
             del self.clients[id_site]
-            _LOGGER.info(f"Client MQTT pour le site {id_site} supprimé.")
         else:
             _LOGGER.warning(f"Le client MQTT pour le site {id_site} n'existe pas.")
+
