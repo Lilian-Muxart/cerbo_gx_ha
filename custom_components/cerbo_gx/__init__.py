@@ -4,7 +4,6 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.const import Platform
 from .mqtt_client import CerboMQTTClient
-from .sensor import CerboBatterySensor, CerboVoltageSensor, CerboTemperatureSensor
 
 DOMAIN = "cerbo_gx"
 PLATFORMS = [Platform.SENSOR]
@@ -33,8 +32,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
 
     try:
-        # Connexion au serveur MQTT
-        mqtt_client.connect()
+        # Connexion au serveur MQTT (synchrone)
+        mqtt_client.connect()  # Appel synchrone
         _LOGGER.info("Connexion au serveur MQTT réussie pour %s", device_name)
     except Exception as e:
         _LOGGER.error("Échec de la connexion au serveur MQTT: %s", str(e))
@@ -43,29 +42,30 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Stocker le client MQTT dans l'intégration
     hass.data[DOMAIN][entry.entry_id]["mqtt_client"] = mqtt_client
 
-    # Configurer les capteurs
-    cerbo_battery = CerboBatterySensor(device_name, id_site, mqtt_client)
-    cerbo_voltage = CerboVoltageSensor(device_name, id_site, mqtt_client)
-    cerbo_temperature = CerboTemperatureSensor(device_name, id_site, mqtt_client)
-
-    # Enregistrer les capteurs dans Home Assistant
-    hass.data[DOMAIN][entry.entry_id]["sensors"] = [cerbo_battery, cerbo_voltage, cerbo_temperature]
-
-    # Enregistrer les capteurs dans la plateforme Home Assistant
+    # Configurer les entités associées via la plateforme "sensor"
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     return True
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Décharger une entrée de configuration."""
-    # Décharger les capteurs et autres plateformes
+    # Décharger les plateformes associées (e.g., sensors)
     await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
-    # Déconnexion du client MQTT
+    # Déconnexion et nettoyage
     if entry.entry_id in hass.data[DOMAIN]:
         mqtt_client = hass.data[DOMAIN][entry.entry_id].get("mqtt_client")
         if mqtt_client:
+            # Arrêter la boucle de MQTT et se déconnecter proprement
             mqtt_client.disconnect()
         del hass.data[DOMAIN][entry.entry_id]
 
     return True
+
+async def get_area_id_by_name(hass: HomeAssistant, room_name: str) -> str:
+    """Obtenez l'ID de la pièce à partir de son nom."""
+    area_registry = await hass.helpers.entity_registry.async_get_registry()
+    for area in area_registry.areas:
+        if area.name.lower() == room_name.lower():
+            return area.id
+    return None
