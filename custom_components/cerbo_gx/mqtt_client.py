@@ -42,18 +42,25 @@ class CerboMQTTClient:
     def connect(self):
         loop = asyncio.get_event_loop()
         loop.run_in_executor(None, self._connect_sync)
+        loop.create_task(self._keep_alive())
 
     def _connect_sync(self):
-        self.client.connect(self.broker_url, 8883)
-        self.client.loop_start()
+        try:
+            self.client.connect(self.broker_url, 8883)
+            self.client.loop_start()
+        except Exception as e:
+            _LOGGER.error(f"Erreur lors de la connexion : {e}")
 
     def disconnect(self):
         loop = asyncio.get_event_loop()
         loop.run_in_executor(None, self._disconnect_sync)
 
     def _disconnect_sync(self):
-        self.client.loop_stop()
-        self.client.disconnect()
+        try:
+            self.client.loop_stop()
+            self.client.disconnect()
+        except Exception as e:
+            _LOGGER.error(f"Erreur lors de la déconnexion : {e}")
 
     def on_connect(self, client, userdata, flags, rc):
         if rc == 0:
@@ -100,3 +107,10 @@ class CerboMQTTClient:
 
             except ValueError:
                 _LOGGER.error(f"Callback non trouvé pour le topic : {topic}")
+
+    async def _keep_alive(self):
+        while True:
+            await asyncio.sleep(30)
+            keepalive_topic = f"R/{self.id_site}/keepalive"
+            self.client.publish(keepalive_topic, "", qos=0)
+            _LOGGER.info(f"Message de keep-alive envoyé au topic {keepalive_topic} : ''")
