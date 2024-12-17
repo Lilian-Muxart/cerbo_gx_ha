@@ -101,7 +101,8 @@ class CerboMQTTClient:
 
     def _schedule_reconnect(self):
         """Planifie une reconnexion toutes les 3 minutes."""
-        loop = asyncio.get_event_loop()
+        # Utiliser le contexte actuel de boucle d'événements (ici on suppose que c'est déjà le bon thread)
+        loop = asyncio.get_running_loop()
         self.reconnect_timer = loop.call_later(self.reconnect_interval, self.reconnect)
 
     def reconnect(self):
