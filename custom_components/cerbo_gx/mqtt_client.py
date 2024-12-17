@@ -20,12 +20,12 @@ class CerboMQTTClient:
 
         self.ca_cert_path = os.path.join(os.path.dirname(__file__), "venus-ca.crt")
         if os.path.exists(self.ca_cert_path):
-            # Asynchronously configure TLS
-            self.client.tls_set(ca_certs=self.ca_cert_path, certfile=None, keyfile=None, tls_version=ssl.PROTOCOL_TLSv1_2)
+            # Initialiser la configuration TLS de manière asynchrone
+            asyncio.ensure_future(self._configure_tls())
         else:
             raise FileNotFoundError(f"Le certificat CA n'a pas été trouvé à l'emplacement : {self.ca_cert_path}")
 
-        # Initialize callbacks
+        # Initialiser les callbacks
         self.client.on_connect = self.on_connect
         self.client.on_message = self._on_global_message
         self.subscriptions = {}  # Dictionnaire pour gérer les abonnements par topic
@@ -38,6 +38,13 @@ class CerboMQTTClient:
             sum += ord(character)
         broker_index = sum % 128
         return f"mqtt{broker_index}.victronenergy.com"
+
+    async def _configure_tls(self):
+        """Configurer TLS de manière asynchrone"""
+        loop = asyncio.get_event_loop()
+        # Utilisation du gestionnaire TLS
+        self.client.tls_set(ca_certs=self.ca_cert_path, certfile=None, keyfile=None, tls_version=ssl.PROTOCOL_TLSv1_2)
+        _LOGGER.info("TLS configuré avec succès.")
 
     async def connect(self):
         """Méthode asynchrone pour se connecter au broker."""
