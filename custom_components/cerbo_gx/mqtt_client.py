@@ -79,6 +79,15 @@ class CerboMQTTClient:
             _LOGGER.error(f"Erreur de connexion avec le code de retour {rc}")
 
 
+    def on_message(self, client, userdata, msg):
+        """Callback global pour recevoir tous les messages MQTT."""
+        _LOGGER.debug("Message reçu sur le topic %s : %s", msg.topic, msg.payload)
+        try:
+            payload = json.loads(msg.payload)
+            _LOGGER.info("Payload décodé : %s", json.dumps(payload, indent=2))
+        except json.JSONDecodeError:
+            _LOGGER.error("Erreur de décodage du message JSON sur le topic %s", msg.topic)
+            
     def add_subscriber(self, subscriber):
         """Ajouter un abonné pour recevoir les messages MQTT."""
         topic = subscriber.get_state_topic()
