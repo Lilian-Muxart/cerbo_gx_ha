@@ -40,10 +40,7 @@ async def async_setup_entry(hass: HomeAssistantType, entry, async_add_entities) 
 
 
 class CerboBaseSensor(SensorEntity):
-    """Classe de base pour les capteurs du Cerbo GX."""
-
     def __init__(self, device_name: str, id_site: str, mqtt_client: CerboMQTTClient, state_topic: str, value_key: str):
-        """Initialiser le capteur."""
         self._device_name = device_name
         self._id_site = id_site
         self._state = None
@@ -58,31 +55,27 @@ class CerboBaseSensor(SensorEntity):
         }
 
     async def async_added_to_hass(self):
-        """Abonnez-vous aux messages MQTT lorsque l'entité est ajoutée."""
         _LOGGER.info("Abonnement au topic MQTT pour %s", self._attr_name)
-        self._mqtt_client.add_subscriber(self)  # Inscrire le capteur comme abonné
-        self._mqtt_client.client.subscribe(self.get_state_topic())  # Utiliser get_state_topic()
+        self._mqtt_client.add_subscription(self.get_state_topic(), self.on_mqtt_message)
+
+    async def async_will_remove_from_hass(self):
+        """Nettoyage des abonnements lors de la suppression de l'entité."""
+        _LOGGER.info("Désabonnement du topic MQTT pour %s", self._attr_name)
+        self._mqtt_client.remove_subscription(self.get_state_topic(), self.on_mqtt_message)
 
     def on_mqtt_message(self, client, userdata, msg):
-        """Gérer les messages MQTT reçus."""
         _LOGGER.debug("Message reçu sur le topic %s : %s", msg.topic, msg.payload)
         try:
-            # Vérification si le payload est vide
             if not msg.payload:
                 _LOGGER.warning("Message vide reçu sur le topic %s", msg.topic)
-                return  # Quitter la fonction si le payload est vide
+                return
             
-            # Tentative de décodage du JSON
             payload = json.loads(msg.payload)
             _LOGGER.info("Payload décodé : %s", json.dumps(payload, indent=2))
-            
-            # Extraction de la valeur spécifique
             value = self._extract_value(payload)
             
             if value is not None:
                 self._state = value
-                _LOGGER.info(f"État mis à jour pour {self._attr_name} : {self._state}")
-                # Utilisation de call_soon_threadsafe pour éviter async_add_job
                 self.hass.loop.call_soon_threadsafe(self.async_write_ha_state)
             else:
                 _LOGGER.warning(f"Valeur non trouvée dans le payload pour {self._attr_name}")
@@ -93,23 +86,18 @@ class CerboBaseSensor(SensorEntity):
             _LOGGER.error("Erreur lors du traitement du message : %s", e)
 
     def _extract_value(self, payload: dict):
-        """Extraire la valeur en fonction de la clé spécifique."""
         if "value" in payload and isinstance(payload["value"], list) and len(payload["value"]) > 0:
             sensor_data = payload["value"][0]
             if self._value_key in sensor_data:
                 return sensor_data[self._value_key]
         return None
-    
+
     @property
     def state(self):
         return self._state
 
     def get_state_topic(self):
-        """Retourner le topic d'état du capteur."""
-        topic = self._state_topic
-        _LOGGER.debug("get_state_topic appelé, topic retourné : %s", topic)
-        return topic
-
+        return self._state_topic
 
 class CerboBatterySensor(CerboBaseSensor):
     """Capteur pour la batterie du Cerbo GX."""
@@ -128,7 +116,7 @@ class CerboVoltageSensor(CerboBaseSensor):
     """Capteur pour la tension du Cerbo GX."""
 
     def __init__(self, device_name: str, id_site: str, mqtt_client: CerboMQTTClient):
-        state_topic = f"N/{id_site}/system/#"
+        state_topic = f"N/{id_site}/system/0/Batteries"
         value_key = "voltage"  # Nous voulons extraire la tension
         super().__init__(device_name, id_site, mqtt_client, state_topic, value_key)
         self._attr_name = f"{device_name} Voltage"
@@ -141,8 +129,8 @@ class CerboTemperatureSensor(CerboBaseSensor):
     """Capteur pour la température du Cerbo GX."""
 
     def __init__(self, device_name: str, id_site: str, mqtt_client: CerboMQTTClient):
-        state_topic = f"N/{id_site}/system/0/Control/SolarChargerTemperatureSense"
-        value_key = ""  # Nous voulons extraire la température
+        state_topic = f"N/{id_site}/system/0/Batteries"
+        value_key = "temperature"  # Nous voulons extraire la température
         super().__init__(device_name, id_site, mqtt_client, state_topic, value_key)
         self._attr_name = f"{device_name} Temperature"
         self._attr_unique_id = f"{id_site}_temperature"
