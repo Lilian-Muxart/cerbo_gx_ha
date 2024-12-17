@@ -40,14 +40,13 @@ async def async_setup_entry(hass: HomeAssistantType, entry, async_add_entities) 
 
 
 class CerboBaseSensor(SensorEntity):
-    def __init__(self, device_name: str, id_site: str, mqtt_client: CerboMQTTClient, state_topic: str, value_key: str, default_value=None):
+    def __init__(self, device_name: str, id_site: str, mqtt_client: CerboMQTTClient, state_topic: str, value_key: str):
         self._device_name = device_name
         self._id_site = id_site
-        self._state = default_value  # Valeur par défaut
+        self._state = None
         self._mqtt_client = mqtt_client
         self._state_topic = state_topic
         self._value_key = value_key
-        self._default_value = default_value  # Valeur par défaut
         self._attr_device_info = {
             "identifiers": {(DOMAIN, id_site)},
             "name": device_name,
@@ -76,15 +75,11 @@ class CerboBaseSensor(SensorEntity):
             _LOGGER.info("Payload décodé : %s", json.dumps(payload, indent=2))
             value = self._extract_value(payload)
             
-            # Si aucune valeur n'a été trouvée, utiliser la valeur par défaut
-            if value is None:
-                _LOGGER.warning(f"Valeur non trouvée dans le payload pour {self._attr_name}. Valeur par défaut utilisée.")
-                self._state = self._default_value
-            else:
+            if value is not None:
                 self._state = value
-
-            # Mettre à jour l'état de l'entité
-            self.hass.loop.call_soon_threadsafe(self.async_write_ha_state)
+                self.hass.loop.call_soon_threadsafe(self.async_write_ha_state)
+            else:
+                _LOGGER.warning(f"Valeur non trouvée dans le payload pour {self._attr_name}")
         
         except json.JSONDecodeError as e:
             _LOGGER.error(f"Erreur de décodage du message JSON sur le topic {msg.topic}: {e}")
@@ -92,7 +87,6 @@ class CerboBaseSensor(SensorEntity):
             _LOGGER.error("Erreur lors du traitement du message : %s", e)
 
     def _extract_value(self, payload: dict):
-        """Extraire la valeur demandée depuis le payload JSON."""
         if "value" in payload and isinstance(payload["value"], list) and len(payload["value"]) > 0:
             sensor_data = payload["value"][0]
             if self._value_key in sensor_data:
@@ -106,14 +100,13 @@ class CerboBaseSensor(SensorEntity):
     def get_state_topic(self):
         return self._state_topic
 
-
 class CerboBatterySensor(CerboBaseSensor):
     """Capteur pour la batterie du Cerbo GX."""
 
     def __init__(self, device_name: str, id_site: str, mqtt_client: CerboMQTTClient):
         state_topic = f"N/{id_site}/system/0/Batteries"
         value_key = "soc"  # Nous voulons extraire la charge de la batterie
-        super().__init__(device_name, id_site, mqtt_client, state_topic, value_key, default_value="N/A")
+        super().__init__(device_name, id_site, mqtt_client, state_topic, value_key)
         self._attr_name = f"{device_name} Battery"
         self._attr_unique_id = f"{id_site}_battery"
         self._attr_device_class = SensorDeviceClass.BATTERY
@@ -126,7 +119,7 @@ class CerboVoltageSensor(CerboBaseSensor):
     def __init__(self, device_name: str, id_site: str, mqtt_client: CerboMQTTClient):
         state_topic = f"N/{id_site}/system/0/Batteries"
         value_key = "voltage"  # Nous voulons extraire la tension
-        super().__init__(device_name, id_site, mqtt_client, state_topic, value_key, default_value=0)
+        super().__init__(device_name, id_site, mqtt_client, state_topic, value_key)
         self._attr_name = f"{device_name} Voltage"
         self._attr_unique_id = f"{id_site}_voltage"
         self._attr_device_class = SensorDeviceClass.VOLTAGE
@@ -139,7 +132,7 @@ class CerboTemperatureSensor(CerboBaseSensor):
     def __init__(self, device_name: str, id_site: str, mqtt_client: CerboMQTTClient):
         state_topic = f"N/{id_site}/system/0/Batteries"
         value_key = "temperature"  # Nous voulons extraire la température
-        super().__init__(device_name, id_site, mqtt_client, state_topic, value_key, default_value="N/A")
+        super().__init__(device_name, id_site, mqtt_client, state_topic, value_key)
         self._attr_name = f"{device_name} Temperature"
         self._attr_unique_id = f"{id_site}_temperature"
         self._attr_device_class = SensorDeviceClass.TEMPERATURE
