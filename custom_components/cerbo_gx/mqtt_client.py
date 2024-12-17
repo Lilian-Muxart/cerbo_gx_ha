@@ -33,6 +33,7 @@ class CerboMQTTClient:
         else:
             raise FileNotFoundError(f"Le certificat CA n'a pas été trouvé à l'emplacement : {self.ca_cert_path}")
         self.client.on_connect = self.on_connect
+        self.subscribers = []
 
     def _configure_tls(self):
         """Configurer la connexion sécurisée dans un thread séparé."""
@@ -65,7 +66,7 @@ class CerboMQTTClient:
         """Déconnexion synchrone du broker MQTT."""
         self.client.loop_stop()  # Arrêter la boucle
         self.client.disconnect()
-    
+
     def on_connect(self, client, userdata, flags, rc):
         """Callback lorsque la connexion au broker MQTT est réussie."""
         if rc == 0:  # Vérifier que la connexion est réussie
@@ -74,6 +75,10 @@ class CerboMQTTClient:
             keepalive_topic = f"R/{self.id_site}/keepalive"
             self.client.publish(keepalive_topic, "", qos=0)
             _LOGGER.info(f"Message envoyé au topic {keepalive_topic} : ''")
+            
+            # S'abonner aux topics des abonnés
+            self._subscribe_to_topics()
+
         else:
             _LOGGER.error(f"Erreur de connexion avec le code de retour {rc}")
 
@@ -88,14 +93,17 @@ class CerboMQTTClient:
             
     def add_subscriber(self, subscriber):
         """Ajouter un abonné pour recevoir les messages MQTT."""
-        topic = subscriber.get_state_topic()
-        callback = subscriber.on_mqtt_message
+        self.subscribers.append(subscriber)
+        self._subscribe_to_topics()
 
-        # Log des informations importantes
-        _LOGGER.debug("Ajout d'un abonné : topic=%s, callback=%s", topic, callback)
-
-        # Ajout du callback pour le topic
-        self.client.message_callback_add(topic, callback)
+    def _subscribe_to_topics(self):
+        """S'abonner aux topics de tous les abonnés."""
+        for subscriber in self.subscribers:
+            topic = subscriber.get_state_topic()
+            callback = subscriber.on_mqtt_message
+            self.client.message_callback_add(topic, callback)  # Ajouter le callback pour ce topic
+            self.client.subscribe(topic)  # Souscrire au topic
+            _LOGGER.debug(f"Souscription au topic {topic}")
 
     def subscribe(self, topic):
         """Souscrire à un topic MQTT."""
