@@ -65,21 +65,17 @@ class CerboBaseSensor(SensorEntity):
         self._mqtt_client.remove_subscription(self.get_state_topic(), self.on_mqtt_message)
 
     def on_mqtt_message(self, client, userdata, msg):
-        _LOGGER.debug("Message reçu sur le topic %s : %s", msg.topic, msg.payload)
         try:
             if not msg.payload:
                 _LOGGER.warning("Message vide reçu sur le topic %s", msg.topic)
                 return
             
             payload = json.loads(msg.payload)
-            _LOGGER.info("Payload décodé : %s", json.dumps(payload, indent=2))
             value = self._extract_value(payload)
             
             if value is not None:
                 self._state = value
                 self.hass.loop.call_soon_threadsafe(self.async_write_ha_state)
-            else:
-                _LOGGER.warning(f"Valeur non trouvée dans le payload pour {self._attr_name}")
         
         except json.JSONDecodeError as e:
             _LOGGER.error(f"Erreur de décodage du message JSON sur le topic {msg.topic}: {e}")
