@@ -147,5 +147,5 @@ class CerboRelaySensor(CerboBaseSensor):
         
         self._attr_name = f"{device_name} Relay State"
         self._attr_unique_id = f"{id_site}_relay_state"
-        self._attr_device_class = None
+        self._attr_device_class = SensorDeviceClass.SWITCH
         self._attr_native_unit_of_measurement = ""
