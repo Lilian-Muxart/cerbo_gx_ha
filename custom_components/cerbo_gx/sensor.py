@@ -84,11 +84,15 @@ class CerboBaseSensor(SensorEntity):
             _LOGGER.error("Erreur lors du traitement du message : %s", e)
 
     def _extract_value(self, payload: dict):
-        if "value" in payload and isinstance(payload["value"], list) and len(payload["value"]) > 0:
-            sensor_data = payload["value"][0]
-            print(sensor_data)
-            if self._value_key in sensor_data:
-                return sensor_data[self._value_key]
+        # Vérifie si "value" est une liste avec des données
+        if "value" in payload:
+            if isinstance(payload["value"], list) and len(payload["value"]) > 0:
+                sensor_data = payload["value"][0]
+                if self._value_key in sensor_data:
+                    return sensor_data[self._value_key]
+            # Si "value" n'est pas une liste, mais une valeur directe
+            elif isinstance(payload["value"], (int, float, str, bool)):
+                return payload["value"]
         return None
 
     @property
