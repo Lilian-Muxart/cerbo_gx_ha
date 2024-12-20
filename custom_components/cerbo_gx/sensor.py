@@ -136,16 +136,20 @@ class CerboTemperatureSensor(CerboBaseSensor):
         self._attr_native_unit_of_measurement = "°C"
 
 
+class RelayDeviceClass:
+    RELAY = "relay"
+
+
 class CerboRelaySensor(CerboBaseSensor):
     """Capteur pour l'état des relais du Cerbo GX."""
     
     def __init__(self, device_name: str, id_site: str, mqtt_client: CerboMQTTClient):
         state_topic = f"N/{id_site}/system/0/Relay/1/State"
-        value_key = ""  # Aucune valeur spécifique à extraire, l'état du relais sera traité.
+        value_key = ""  # Définir la clé de valeur pour l'état du relais
         
         super().__init__(device_name, id_site, mqtt_client, state_topic, value_key)
         
         self._attr_name = f"{device_name} Relay State"
         self._attr_unique_id = f"{id_site}_relay_state"
-        self._attr_device_class = SensorDeviceClass.TEMPERATURE
+        self._attr_device_class = RelayDeviceClass.RELAY
         self._attr_native_unit_of_measurement = ""
