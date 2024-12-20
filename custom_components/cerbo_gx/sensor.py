@@ -155,7 +155,7 @@ class CerboRelaySensor(CerboBaseSensor):
         
         super().__init__(device_name, id_site, mqtt_client, state_topic, value_key)
         
-        self._attr_name = f"{device_name} Relay State 1"
+        self._attr_name = f"{device_name} Relay State"
         self._attr_unique_id = f"{id_site}_relay_state"
         self._attr_device_class = RelayDeviceClass.RELAY
         self._attr_native_unit_of_measurement = ""
