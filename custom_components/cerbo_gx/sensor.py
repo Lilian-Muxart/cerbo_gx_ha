@@ -31,6 +31,7 @@ async def async_setup_entry(hass: HomeAssistantType, entry, async_add_entities) 
         CerboBatterySensor(device_name, id_site, mqtt_client),
         CerboVoltageSensor(device_name, id_site, mqtt_client),
         CerboTemperatureSensor(device_name, id_site, mqtt_client),
+        CerboRelaySensor(device_name, id_site, mqtt_client),
     ]
 
     # Ajouter les capteurs à Home Assistant
@@ -133,3 +134,18 @@ class CerboTemperatureSensor(CerboBaseSensor):
         self._attr_unique_id = f"{id_site}_temperature"
         self._attr_device_class = SensorDeviceClass.TEMPERATURE
         self._attr_native_unit_of_measurement = "°C"
+
+
+class CerboRelaySensor(CerboBaseSensor):
+    """Capteur pour l'état des relais du Cerbo GX."""
+    
+    def __init__(self, device_name: str, id_site: str, mqtt_client: CerboMQTTClient):
+        state_topic = f"N/{id_site}/system/0/Relay/1/State"
+        value_key = ""  # Aucune valeur spécifique à extraire, l'état du relais sera traité.
+        
+        super().__init__(device_name, id_site, mqtt_client, state_topic, value_key)
+        
+        self._attr_name = f"{device_name} Relay State"
+        self._attr_unique_id = f"{id_site}_relay_state"
+        self._attr_device_class = SensorDeviceClass.RELAY
+        self._attr_native_unit_of_measurement = ""
