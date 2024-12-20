@@ -86,6 +86,7 @@ class CerboBaseSensor(SensorEntity):
     def _extract_value(self, payload: dict):
         if "value" in payload and isinstance(payload["value"], list) and len(payload["value"]) > 0:
             sensor_data = payload["value"][0]
+            print(sensor_data)
             if self._value_key in sensor_data:
                 return sensor_data[self._value_key]
         return None
@@ -145,7 +146,7 @@ class CerboRelaySensor(CerboBaseSensor):
     
     def __init__(self, device_name: str, id_site: str, mqtt_client: CerboMQTTClient):
         state_topic = f"N/{id_site}/system/0/Relay/1/State"
-        value_key = "value"  # Définir la clé de valeur pour l'état du relais
+        value_key = ""  # Définir la clé de valeur pour l'état du relais
         
         super().__init__(device_name, id_site, mqtt_client, state_topic, value_key)
         
