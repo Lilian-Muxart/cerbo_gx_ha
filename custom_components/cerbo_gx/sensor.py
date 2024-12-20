@@ -149,7 +149,7 @@ class CerboRelaySensor(CerboBaseSensor):
     """Capteur pour l'état des relais du Cerbo GX."""
     
     def __init__(self, device_name: str, id_site: str, mqtt_client: CerboMQTTClient):
-        state_topic = f"N/{id_site}/system/0/Relay/1/State"
+        state_topic = f"N/{id_site}/system/0/Relay/0/State"
         value_key = ""  # Définir la clé de valeur pour l'état du relais
         
         super().__init__(device_name, id_site, mqtt_client, state_topic, value_key)
@@ -158,3 +158,4 @@ class CerboRelaySensor(CerboBaseSensor):
         self._attr_unique_id = f"{id_site}_relay_state"
         self._attr_device_class = RelayDeviceClass.RELAY
         self._attr_native_unit_of_measurement = ""
+        self._attr_is_read_only = True  # Indique que l'état est en lecture seule
