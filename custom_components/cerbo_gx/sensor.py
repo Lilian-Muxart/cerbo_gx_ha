@@ -120,8 +120,8 @@ class CerboVoltageSensor(CerboBaseSensor):
     """Capteur pour la tension du Cerbo GX."""
 
     def __init__(self, device_name: str, id_site: str, mqtt_client: CerboMQTTClient):
-        state_topic = f"N/{id_site}/system/0/Batteries"
-        value_key = "voltage"  # Nous voulons extraire la tension
+        state_topic = f"N/{id_site}/system/0/Dc/Battery/Voltage"
+        value_key = ""  # Nous voulons extraire la tension
         super().__init__(device_name, id_site, mqtt_client, state_topic, value_key)
         self._attr_name = f"{device_name} Voltage"
         self._attr_unique_id = f"{id_site}_voltage"
@@ -133,8 +133,8 @@ class CerboTemperatureSensor(CerboBaseSensor):
     """Capteur pour la température du Cerbo GX."""
 
     def __init__(self, device_name: str, id_site: str, mqtt_client: CerboMQTTClient):
-        state_topic = f"N/{id_site}/system/0/Batteries"
-        value_key = "temperature"  # Nous voulons extraire la température
+        state_topic = f"N/{id_site}/system/0/Dc/Battery/Temperature"
+        value_key = ""  # Nous voulons extraire la température
         super().__init__(device_name, id_site, mqtt_client, state_topic, value_key)
         self._attr_name = f"{device_name} Temperature"
         self._attr_unique_id = f"{id_site}_temperature"
