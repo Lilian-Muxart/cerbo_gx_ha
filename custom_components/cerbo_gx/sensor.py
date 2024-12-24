@@ -104,20 +104,20 @@ class CerboBaseSensor(SensorEntity):
 
 
 class CerboRelaySwitch(SwitchEntity):
-    """Commutateur pour contrôler les relais du Cerbo GX."""
+    """Interrupteur pour contrôler un relais du Cerbo GX."""
 
     def __init__(self, device_name: str, id_site: str, mqtt_client: CerboMQTTClient, relay_index: int):
         self._device_name = device_name
         self._id_site = id_site
-        self._relay_index = relay_index
         self._mqtt_client = mqtt_client
+        self._relay_index = relay_index
         self._state = False
 
         self._state_topic = f"N/{id_site}/system/0/Relay/{relay_index}/State"
         self._command_topic = f"W/{id_site}/system/0/Relay/{relay_index}/State"
 
-        self._attr_name = f"{device_name} Relay {relay_index}"
-        self._attr_unique_id = f"{id_site}_relay_{relay_index}"
+        self._attr_name = f"{device_name} Relay Switch {relay_index}"
+        self._attr_unique_id = f"{id_site}_relay_switch_{relay_index}"
 
     async def async_added_to_hass(self):
         """Abonnez-vous aux messages MQTT lorsque l'entité est ajoutée."""
@@ -130,6 +130,7 @@ class CerboRelaySwitch(SwitchEntity):
         self._mqtt_client.remove_subscription(self._state_topic, self.on_mqtt_message)
 
     def on_mqtt_message(self, client, userdata, msg):
+        """Met à jour l'état local en fonction du message MQTT reçu."""
         try:
             if not msg.payload:
                 _LOGGER.warning("Message vide reçu sur le topic %s", msg.topic)
@@ -137,6 +138,7 @@ class CerboRelaySwitch(SwitchEntity):
 
             payload = json.loads(msg.payload)
             self._state = payload.get("value", False)
+            _LOGGER.info("Mise à jour de l'état du relais %d: %s", self._relay_index, self._state)
             self.hass.loop.call_soon_threadsafe(self.async_write_ha_state)
 
         except json.JSONDecodeError as e:
@@ -146,17 +148,25 @@ class CerboRelaySwitch(SwitchEntity):
 
     @property
     def is_on(self):
+        """Retourne l'état actuel du relais."""
         return self._state
 
     async def async_turn_on(self, **kwargs):
-        self._mqtt_client.publish(self._command_topic, json.dumps({"value": True}))
+        """Allume le relais via MQTT."""
+        _LOGGER.info("Activation du relais %d", self._relay_index)
+        payload = json.dumps({"value": True})
+        self._mqtt_client.publish(self._command_topic, payload)
         self._state = True
         self.async_write_ha_state()
 
     async def async_turn_off(self, **kwargs):
-        self._mqtt_client.publish(self._command_topic, json.dumps({"value": False}))
+        """Éteint le relais via MQTT."""
+        _LOGGER.info("Désactivation du relais %d", self._relay_index)
+        payload = json.dumps({"value": False})
+        self._mqtt_client.publish(self._command_topic, payload)
         self._state = False
         self.async_write_ha_state()
+
 
 
 class CerboBatterySensor(CerboBaseSensor):
