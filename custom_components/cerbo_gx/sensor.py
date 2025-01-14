@@ -28,7 +28,6 @@ async def async_setup_entry(hass: HomeAssistantType, entry, async_add_entities) 
 
     # Liste des capteurs à ajouter
     sensors = [
-        CerboBatterySensor(device_name, id_site, mqtt_client),
         CerboVoltageSensor(device_name, id_site, mqtt_client),
         CerboTemperatureSensor(device_name, id_site, mqtt_client),
         CerboWattSensor(device_name, id_site, mqtt_client),
@@ -104,19 +103,6 @@ class CerboBaseSensor(SensorEntity):
 
     def get_state_topic(self):
         return self._state_topic
-
-class CerboBatterySensor(CerboBaseSensor):
-    """Capteur pour la batterie du Cerbo GX."""
-
-    def __init__(self, device_name: str, id_site: str, mqtt_client: CerboMQTTClient):
-        state_topic = f"N/{id_site}/system/0/Batteries"
-        value_key = "soc"  # Nous voulons extraire la charge de la batterie
-        super().__init__(device_name, id_site, mqtt_client, state_topic, value_key)
-        self._attr_name = f"{device_name} Battery"
-        self._attr_unique_id = f"{id_site}_battery"
-        self._attr_device_class = SensorDeviceClass.BATTERY
-        self._attr_native_unit_of_measurement = "%"
-
 
 class CerboVoltageSensor(CerboBaseSensor):
     """Capteur pour la tension du Cerbo GX."""
