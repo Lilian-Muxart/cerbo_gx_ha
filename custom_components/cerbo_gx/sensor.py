@@ -29,7 +29,6 @@ async def async_setup_entry(hass: HomeAssistantType, entry, async_add_entities) 
     # Liste des capteurs à ajouter
     sensors = [
         CerboVoltageSensor(device_name, id_site, mqtt_client),
-        CerboTemperatureSensor(device_name, id_site, mqtt_client),
         CerboWattSensor(device_name, id_site, mqtt_client),
         CerboAmperageSensor(device_name, id_site, mqtt_client),
         CerboRelaySensor(device_name, id_site, mqtt_client),
@@ -115,19 +114,7 @@ class CerboVoltageSensor(CerboBaseSensor):
         self._attr_unique_id = f"{id_site}_voltage"
         self._attr_device_class = SensorDeviceClass.VOLTAGE
         self._attr_native_unit_of_measurement = "V"
-
-
-class CerboTemperatureSensor(CerboBaseSensor):
-    """Capteur pour la température du Cerbo GX."""
-
-    def __init__(self, device_name: str, id_site: str, mqtt_client: CerboMQTTClient):
-        state_topic = f"N/{id_site}/system/0/Dc/Battery/Temperature"
-        value_key = ""  # Nous voulons extraire la température
-        super().__init__(device_name, id_site, mqtt_client, state_topic, value_key)
-        self._attr_name = f"{device_name} Temperature"
-        self._attr_unique_id = f"{id_site}_temperature"
-        self._attr_device_class = SensorDeviceClass.TEMPERATURE
-        self._attr_native_unit_of_measurement = "°C"
+        self._attr_suggested_display_precision = 2  # Précision à 2 décimales
 
 class CerboWattSensor(CerboBaseSensor):
     """Capteur pour la puissance solaire du Cerbo GX."""
@@ -140,6 +127,7 @@ class CerboWattSensor(CerboBaseSensor):
         self._attr_unique_id = f"{id_site}_solaire"
         self._attr_device_class = SensorDeviceClass.POWER
         self._attr_native_unit_of_measurement = "W"
+        self._attr_suggested_display_precision = 2  # Précision à 2 décimales
 
 class CerboAmperageSensor(CerboBaseSensor):
     """Capteur pour l'ampérage du Cerbo GX."""
@@ -152,6 +140,7 @@ class CerboAmperageSensor(CerboBaseSensor):
         self._attr_unique_id = f"{id_site}_amperage"
         self._attr_device_class = SensorDeviceClass.CURRENT
         self._attr_native_unit_of_measurement = "A"
+        self._attr_suggested_display_precision = 2  # Précision à 2 décimales
 
 class RelayDeviceClass:
     RELAY = "relay"
