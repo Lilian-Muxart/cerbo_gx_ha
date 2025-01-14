@@ -136,7 +136,7 @@ class CerboWattSensor(CerboBaseSensor):
         state_topic = f"N/{id_site}/system/0/Dc/Pv/Power"
         value_key = ""  # Nous voulons extraire la tension
         super().__init__(device_name, id_site, mqtt_client, state_topic, value_key)
-        self._attr_name = f"{device_name} Power_solaire"
+        self._attr_name = f"{device_name} Power solaire"
         self._attr_unique_id = f"{id_site}_solaire"
         self._attr_device_class = SensorDeviceClass.POWER
         self._attr_native_unit_of_measurement = "W"
