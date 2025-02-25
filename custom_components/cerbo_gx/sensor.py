@@ -1,6 +1,6 @@
 import logging
 import json
-from homeassistant.components.switch import SwitchEntity
+from homeassistant.components.sensor import SensorEntity
 from homeassistant.helpers.typing import HomeAssistantType
 from homeassistant.components.sensor import SensorDeviceClass
 from .mqtt_client import CerboMQTTClient  # Client MQTT importé (à définir dans mqtt_client.py)
@@ -10,7 +10,7 @@ from . import DOMAIN
 _LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(hass: HomeAssistantType, entry, async_add_entities) -> None:
-    """Configurer les switchs pour une entrée donnée."""
+    """Configurer les capteurs pour une entrée donnée."""
     device_name = entry.data["device_name"]
     id_site = entry.data["cerbo_id"]
 
@@ -23,22 +23,25 @@ async def async_setup_entry(hass: HomeAssistantType, entry, async_add_entities) 
         return
 
     _LOGGER.info(
-        "Initialisation des switchs pour le dispositif %s avec l'ID de site %s", device_name, id_site
+        "Initialisation des capteurs pour le dispositif %s avec l'ID de site %s", device_name, id_site
     )
 
-    # Liste des switchs à ajouter
-    switches = [
-        CerboRelaySwitch(device_name, id_site, mqtt_client, 0),
-        CerboRelaySwitch(device_name, id_site, mqtt_client, 1),
+    # Liste des capteurs à ajouter
+    sensors = [
+        CerboVoltageSensor(device_name, id_site, mqtt_client),
+        CerboWattSensor(device_name, id_site, mqtt_client),
+        CerboAmperageSensor(device_name, id_site, mqtt_client),
+        CerboRelaySensor(device_name, id_site, mqtt_client),
+        CerboRelaySensor2(device_name, id_site, mqtt_client),
     ]
 
-    # Ajouter les switchs à Home Assistant
-    async_add_entities(switches, update_before_add=True)
+    # Ajouter les capteurs à Home Assistant
+    async_add_entities(sensors, update_before_add=True)
 
-    _LOGGER.info("Switchs ajoutés pour %s", device_name)
+    _LOGGER.info("Capteurs ajoutés pour %s", device_name)
 
 
-class CerboBaseSensor:
+class CerboBaseSensor(SensorEntity):
     def __init__(self, device_name: str, id_site: str, mqtt_client: CerboMQTTClient, state_topic: str, value_key: str):
         self._device_name = device_name
         self._id_site = id_site
@@ -100,52 +103,47 @@ class CerboBaseSensor:
     def get_state_topic(self):
         return self._state_topic
 
+class CerboVoltageSensor(CerboBaseSensor):
+    """Capteur pour la tension du Cerbo GX."""
 
-class CerboRelaySwitch(CerboBaseSensor, SwitchEntity):
-    """Switch pour contrôler les relais du Cerbo GX."""
-    
-    def __init__(self, device_name: str, id_site: str, mqtt_client: CerboMQTTClient, relay_id: int):
-        # Définir les topics pour l'état du relais et la commande
-        state_topic = f"N/{id_site}/system/0/Relay/{relay_id}/State"
-        command_topic = f"W/{id_site}/system/0/Relay/{relay_id}/State"
-        value_key = ""  # Pas de clé spécifique pour l'état du relais
-        
+    def __init__(self, device_name: str, id_site: str, mqtt_client: CerboMQTTClient):
+        state_topic = f"N/{id_site}/system/0/Dc/Battery/Voltage"
+        value_key = ""  # Nous voulons extraire la tension
         super().__init__(device_name, id_site, mqtt_client, state_topic, value_key)
-        
-        self._relay_id = relay_id
-        self._command_topic = command_topic
-        
-        # Attributs pour la classe switch
-        self._attr_name = f"{device_name} Relay {relay_id} Switch"
-        self._attr_unique_id = f"{id_site}_relay_{relay_id}_switch"
-        self._attr_device_class = "switch"  # Définir le type comme switch
-        self._attr_native_unit_of_measurement = ""
-        self._attr_is_read_only = False  # L'état peut être modifié
-    
-    def turn_on(self):
-        """Action pour allumer le relais (mettre à 1)."""
-        payload = json.dumps({"value": 1})
-        self._mqtt_client.publish(self._command_topic, payload)
-        _LOGGER.info(f"Commande envoyée au topic {self._command_topic}: {payload}")
+        self._attr_name = f"{device_name} Voltage"
+        self._attr_unique_id = f"{id_site}_voltage"
+        self._attr_device_class = SensorDeviceClass.VOLTAGE
+        self._attr_native_unit_of_measurement = "V"
+        self._attr_suggested_display_precision = 2  # Précision à 2 décimales
 
-    def turn_off(self):
-        """Action pour éteindre le relais (mettre à 0)."""
-        payload = json.dumps({"value": 0})
-        self._mqtt_client.publish(self._command_topic, payload)
-        _LOGGER.info(f"Commande envoyée au topic {self._command_topic}: {payload}")
+class CerboWattSensor(CerboBaseSensor):
+    """Capteur pour la puissance solaire du Cerbo GX."""
 
-    def update_state(self, message: str):
-        """Mettre à jour l'état du switch en fonction du message reçu sur le topic d'état."""
-        if message == "1":
-            self._attr_native_value = True  # Le relais est activé
-        elif message == "0":
-            self._attr_native_value = False  # Le relais est désactivé
-        _LOGGER.info(f"État mis à jour: {self._attr_native_value} pour {self._attr_name}")
+    def __init__(self, device_name: str, id_site: str, mqtt_client: CerboMQTTClient):
+        state_topic = f"N/{id_site}/system/0/Dc/Pv/Power"
+        value_key = ""  # Nous voulons extraire la tension
+        super().__init__(device_name, id_site, mqtt_client, state_topic, value_key)
+        self._attr_name = f"{device_name} Power solaire"
+        self._attr_unique_id = f"{id_site}_solaire"
+        self._attr_device_class = SensorDeviceClass.POWER
+        self._attr_native_unit_of_measurement = "W"
+        self._attr_suggested_display_precision = 2  # Précision à 2 décimales
 
-    async def async_update(self):
-        """Mettre à jour l'état du switch en fonction du message reçu."""
-        if self._state is not None:
-            self.update_state(str(self._state))
+class CerboAmperageSensor(CerboBaseSensor):
+    """Capteur pour l'ampérage du Cerbo GX."""
+
+    def __init__(self, device_name: str, id_site: str, mqtt_client: CerboMQTTClient):
+        state_topic = f"N/{id_site}/system/0/Dc/Battery/Current"
+        value_key = ""  # Nous voulons extraire la tension
+        super().__init__(device_name, id_site, mqtt_client, state_topic, value_key)
+        self._attr_name = f"{device_name} Amperage"
+        self._attr_unique_id = f"{id_site}_amperage"
+        self._attr_device_class = SensorDeviceClass.CURRENT
+        self._attr_native_unit_of_measurement = "A"
+        self._attr_suggested_display_precision = 2  # Précision à 2 décimales
+
+class RelayDeviceClass:
+    RELAY = "relay"
 
 
 class CerboRelaySensor(CerboBaseSensor):
@@ -159,9 +157,10 @@ class CerboRelaySensor(CerboBaseSensor):
         
         self._attr_name = f"{device_name} Relay State"
         self._attr_unique_id = f"{id_site}_relay_state"
-        self._attr_device_class = SensorDeviceClass.RELAY
+        self._attr_device_class = RelayDeviceClass.RELAY
         self._attr_native_unit_of_measurement = ""
         self._attr_is_read_only = True  # Indique que l'état est en lecture seule
+
 
 
 class CerboRelaySensor2(CerboBaseSensor):
@@ -175,6 +174,6 @@ class CerboRelaySensor2(CerboBaseSensor):
         
         self._attr_name = f"{device_name} Relay State 2"
         self._attr_unique_id = f"{id_site}_relay_state_2"
-        self._attr_device_class = SensorDeviceClass.RELAY
+        self._attr_device_class = RelayDeviceClass.RELAY
         self._attr_native_unit_of_measurement = ""
         self._attr_is_read_only = True  # Indique que l'état est en lecture seule
