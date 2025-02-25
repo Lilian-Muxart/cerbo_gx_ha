@@ -123,6 +123,14 @@ class CerboMQTTClient:
             self.client.publish(keepalive_topic, "", qos=0)
             _LOGGER.info(f"Message de keep-alive envoyé au topic {keepalive_topic} : ''")
 
+    def publish(self, topic, payload, qos=0, retain=False):
+        """Publier un message sur un topic donné."""
+        try:
+            self.client.publish(topic, payload, qos=qos, retain=retain)
+            _LOGGER.info(f"Message publié sur le topic {topic} : {payload}")
+        except Exception as e:
+            _LOGGER.error(f"Erreur lors de la publication sur le topic {topic}: {e}")
+
 
 class MQTTManager:
     def __init__(self):
@@ -156,4 +164,3 @@ class MQTTManager:
             del self.clients[id_site]
         else:
             _LOGGER.warning(f"Le client MQTT pour le site {id_site} n'existe pas.")
-
