@@ -100,7 +100,7 @@ class CerboVoltageSensor(CerboBaseSensor):
     """Capteur pour la tension du Cerbo GX."""
     def __init__(self, device_name: str, id_site: str, mqtt_client: CerboMQTTClient):
         state_topic = f"N/{id_site}/system/0/Dc/Battery/Voltage"
-        value_key = ""  # On récupère directement la valeur
+        value_key = ""
         super().__init__(device_name, id_site, mqtt_client, state_topic, value_key)
         self._attr_name = f"{device_name} Voltage"
         self._attr_unique_id = f"{id_site}_voltage"
@@ -192,9 +192,17 @@ class CerboRelayInterrupteur(SwitchEntity):
     async def async_turn_on(self, **kwargs):
         _LOGGER.info(f"Activation de l'interrupteur du relais {self._relay_number}")
         payload = json.dumps({"value": 1})
+        # Optimistic update : mise à jour locale avant confirmation MQTT
+        self._state = True
+        self._attr_is_on = True
+        self.async_write_ha_state()
         self._mqtt_client.publish(self._command_topic, payload)
 
     async def async_turn_off(self, **kwargs):
         _LOGGER.info(f"Désactivation de l'interrupteur du relais {self._relay_number}")
         payload = json.dumps({"value": 0})
+        # Optimistic update
+        self._state = False
+        self._attr_is_on = False
+        self.async_write_ha_state()
         self._mqtt_client.publish(self._command_topic, payload)
