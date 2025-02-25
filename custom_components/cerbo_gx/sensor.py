@@ -6,8 +6,6 @@ from homeassistant.components.sensor import SensorDeviceClass
 from .mqtt_client import CerboMQTTClient  # Client MQTT importé (à définir dans mqtt_client.py)
 from homeassistant.core import HomeAssistant
 from . import DOMAIN
-from homeassistant.components.switch import SwitchEntity  # Ajoutez cette ligne
-
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -148,119 +146,34 @@ class RelayDeviceClass:
     RELAY = "relay"
 
 
-class CerboRelaySensor(SwitchEntity):
-    """Commutateur pour l'état des relais du Cerbo GX."""
+class CerboRelaySensor(CerboBaseSensor):
+    """Capteur pour l'état des relais du Cerbo GX."""
     
     def __init__(self, device_name: str, id_site: str, mqtt_client: CerboMQTTClient):
-        self._device_name = device_name
-        self._id_site = id_site
-        self._mqtt_client = mqtt_client
-        self._state_topic = f"N/{id_site}/system/0/Relay/0/State"
-        self._command_topic = f"W/{id_site}/system/0/Relay/0/State"
+        state_topic = f"N/{id_site}/system/0/Relay/0/State"
+        value_key = ""  # Définir la clé de valeur pour l'état du relais
+        
+        super().__init__(device_name, id_site, mqtt_client, state_topic, value_key)
+        
         self._attr_name = f"{device_name} Relay State"
         self._attr_unique_id = f"{id_site}_relay_state"
-        self._attr_device_class = "relay"  # Utilisez une chaîne de caractères pour la classe de l'appareil
-        self._attr_is_on = False  # État initial du commutateur
-
-        # Abonnement au topic MQTT
-        self._mqtt_client.add_subscription(self._state_topic, self.on_mqtt_message)
-
-    async def async_added_to_hass(self):
-        """Abonnez-vous aux messages MQTT lorsque l'entité est ajoutée."""
-        _LOGGER.info("Abonnement au topic MQTT pour %s", self._attr_name)
-
-    async def async_will_remove_from_hass(self):
-        """Désabonnez-vous des messages MQTT lorsque l'entité est retirée."""
-        _LOGGER.info("Désabonnement du topic MQTT pour %s", self._attr_name)
-        self._mqtt_client.remove_subscription(self._state_topic, self.on_mqtt_message)
-
-    async def async_turn_on(self, **kwargs):
-        """Activer le relais."""
-        payload = json.dumps({"value": 1})
-        self._mqtt_client.publish(self._command_topic, payload)
-        self._attr_is_on = True
-        self.async_write_ha_state()
-
-    async def async_turn_off(self, **kwargs):
-        """Désactiver le relais."""
-        payload = json.dumps({"value": 0})
-        self._mqtt_client.publish(self._command_topic, payload)
-        self._attr_is_on = False
-        self.async_write_ha_state()
-
-    @property
-    def is_on(self):
-        """Retourne l'état actuel du commutateur."""
-        return self._attr_is_on
-
-    def on_mqtt_message(self, client, userdata, msg):
-        """Mettre à jour l'état du commutateur en fonction du message MQTT."""
-        try:
-            payload = json.loads(msg.payload)
-            value = payload.get("value")  # Utilisez .get() pour éviter les KeyError
-            if value is not None:
-                self._attr_is_on = bool(value)
-                self.async_write_ha_state()
-        except json.JSONDecodeError as e:
-            _LOGGER.error(f"Erreur de décodage du message JSON sur le topic {msg.topic}: {e}")
-        except Exception as e:
-            _LOGGER.error("Erreur lors du traitement du message : %s", e)
+        self._attr_device_class = RelayDeviceClass.RELAY
+        self._attr_native_unit_of_measurement = ""
+        self._attr_is_read_only = True  # Indique que l'état est en lecture seule
 
 
-class CerboRelaySensor2(SwitchEntity):
-    """Commutateur pour l'état des relais du Cerbo GX."""
+
+class CerboRelaySensor2(CerboBaseSensor):
+    """Capteur pour l'état des relais du Cerbo GX."""
     
     def __init__(self, device_name: str, id_site: str, mqtt_client: CerboMQTTClient):
-        self._device_name = device_name
-        self._id_site = id_site
-        self._mqtt_client = mqtt_client
-        self._state_topic = f"N/{id_site}/system/0/Relay/1/State"
-        self._command_topic = f"W/{id_site}/system/0/Relay/1/State"
+        state_topic = f"N/{id_site}/system/0/Relay/1/State"
+        value_key = ""  # Définir la clé de valeur pour l'état du relais
+        
+        super().__init__(device_name, id_site, mqtt_client, state_topic, value_key)
+        
         self._attr_name = f"{device_name} Relay State 2"
         self._attr_unique_id = f"{id_site}_relay_state_2"
-        self._attr_device_class = "relay"  # Utilisez une chaîne de caractères pour la classe de l'appareil
-        self._attr_is_on = False  # État initial du commutateur
-
-        # Abonnement au topic MQTT
-        self._mqtt_client.add_subscription(self._state_topic, self.on_mqtt_message)
-
-    async def async_added_to_hass(self):
-        """Abonnez-vous aux messages MQTT lorsque l'entité est ajoutée."""
-        _LOGGER.info("Abonnement au topic MQTT pour %s", self._attr_name)
-
-    async def async_will_remove_from_hass(self):
-        """Désabonnez-vous des messages MQTT lorsque l'entité est retirée."""
-        _LOGGER.info("Désabonnement du topic MQTT pour %s", self._attr_name)
-        self._mqtt_client.remove_subscription(self._state_topic, self.on_mqtt_message)
-
-    async def async_turn_on(self, **kwargs):
-        """Activer le relais."""
-        payload = json.dumps({"value": 1})
-        self._mqtt_client.publish(self._command_topic, payload)
-        self._attr_is_on = True
-        self.async_write_ha_state()
-
-    async def async_turn_off(self, **kwargs):
-        """Désactiver le relais."""
-        payload = json.dumps({"value": 0})
-        self._mqtt_client.publish(self._command_topic, payload)
-        self._attr_is_on = False
-        self.async_write_ha_state()
-
-    @property
-    def is_on(self):
-        """Retourne l'état actuel du commutateur."""
-        return self._attr_is_on
-
-    def on_mqtt_message(self, client, userdata, msg):
-        """Mettre à jour l'état du commutateur en fonction du message MQTT."""
-        try:
-            payload = json.loads(msg.payload)
-            value = payload.get("value")  # Utilisez .get() pour éviter les KeyError
-            if value is not None:
-                self._attr_is_on = bool(value)
-                self.async_write_ha_state()
-        except json.JSONDecodeError as e:
-            _LOGGER.error(f"Erreur de décodage du message JSON sur le topic {msg.topic}: {e}")
-        except Exception as e:
-            _LOGGER.error("Erreur lors du traitement du message : %s", e)
+        self._attr_device_class = RelayDeviceClass.RELAY
+        self._attr_native_unit_of_measurement = ""
+        self._attr_is_read_only = True  # Indique que l'état est en lecture seule
