@@ -27,8 +27,8 @@ async def async_setup_entry(hass: HomeAssistantType, entry, async_add_entities) 
         CerboVoltageSensor(device_name, id_site, mqtt_client),
         CerboWattSensor(device_name, id_site, mqtt_client),
         CerboAmperageSensor(device_name, id_site, mqtt_client),
-        CerboRelaySwitch(device_name, id_site, mqtt_client, 0),  # Relais 0
-        CerboRelaySwitch(device_name, id_site, mqtt_client, 1),  # Relais 1
+        CerboRelayInterrupteur(device_name, id_site, mqtt_client, 0),  # Relais 0
+        CerboRelayInterrupteur(device_name, id_site, mqtt_client, 1),  # Relais 1
     ]
 
     async_add_entities(entities, update_before_add=True)
@@ -98,7 +98,6 @@ class CerboBaseSensor(SensorEntity):
 
 class CerboVoltageSensor(CerboBaseSensor):
     """Capteur pour la tension du Cerbo GX."""
-
     def __init__(self, device_name: str, id_site: str, mqtt_client: CerboMQTTClient):
         state_topic = f"N/{id_site}/system/0/Dc/Battery/Voltage"
         value_key = ""  # On récupère directement la valeur
@@ -112,7 +111,6 @@ class CerboVoltageSensor(CerboBaseSensor):
 
 class CerboWattSensor(CerboBaseSensor):
     """Capteur pour la puissance solaire du Cerbo GX."""
-
     def __init__(self, device_name: str, id_site: str, mqtt_client: CerboMQTTClient):
         state_topic = f"N/{id_site}/system/0/Dc/Pv/Power"
         value_key = ""
@@ -126,7 +124,6 @@ class CerboWattSensor(CerboBaseSensor):
 
 class CerboAmperageSensor(CerboBaseSensor):
     """Capteur pour l'ampérage du Cerbo GX."""
-
     def __init__(self, device_name: str, id_site: str, mqtt_client: CerboMQTTClient):
         state_topic = f"N/{id_site}/system/0/Dc/Battery/Current"
         value_key = ""
@@ -142,15 +139,14 @@ class RelayDeviceClass:
     RELAY = "relay"
 
 
-class CerboRelaySwitch(SwitchEntity):
-    """Switch pour contrôler l'état des relais du Cerbo GX."""
-
+class CerboRelayInterrupteur(SwitchEntity):
+    """Interrupteur pour contrôler l'état des relais du Cerbo GX."""
     def __init__(self, device_name: str, id_site: str, mqtt_client: CerboMQTTClient, relay_number: int):
         self._device_name = device_name
         self._id_site = id_site
         self._relay_number = relay_number
         self._mqtt_client = mqtt_client
-        self._state = False  # État par défaut : OFF
+        self._state = False  # État par défaut OFF
         self._state_topic = f"N/{id_site}/system/0/Relay/{relay_number}/State"
         self._command_topic = f"W/{id_site}/system/0/Relay/{relay_number}/State"
         self._attr_device_info = {
@@ -159,8 +155,8 @@ class CerboRelaySwitch(SwitchEntity):
             "manufacturer": "Victron Energy",
             "model": "Cerbo GX",
         }
-        self._attr_name = f"{device_name} Relay {relay_number} Switch"
-        self._attr_unique_id = f"{id_site}_relay_switch_{relay_number}"
+        self._attr_name = f"{device_name} Relay {relay_number} Interrupteur"
+        self._attr_unique_id = f"{id_site}_relay_inter_{relay_number}"
         self._attr_icon = "mdi:power"
         self._attr_is_on = False
 
@@ -179,7 +175,6 @@ class CerboRelaySwitch(SwitchEntity):
                 return
 
             payload = json.loads(msg.payload)
-            # On attend que le payload soit de la forme {"value": <int>}
             value = payload.get("value")
             if value is not None:
                 self._state = (value == 1)
@@ -195,11 +190,11 @@ class CerboRelaySwitch(SwitchEntity):
         return self._state
 
     async def async_turn_on(self, **kwargs):
-        _LOGGER.info(f"Allumer le relais {self._relay_number}")
+        _LOGGER.info(f"Activation de l'interrupteur du relais {self._relay_number}")
         payload = json.dumps({"value": 1})
         self._mqtt_client.publish(self._command_topic, payload)
 
     async def async_turn_off(self, **kwargs):
-        _LOGGER.info(f"Éteindre le relais {self._relay_number}")
+        _LOGGER.info(f"Désactivation de l'interrupteur du relais {self._relay_number}")
         payload = json.dumps({"value": 0})
         self._mqtt_client.publish(self._command_topic, payload)
