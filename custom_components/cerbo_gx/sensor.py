@@ -148,21 +148,31 @@ class RelayDeviceClass:
     RELAY = "relay"
 
 
-class CerboRelaySensor(SwitchEntity):  # Remplacez SensorEntity par SwitchEntity
+class CerboRelaySensor(SwitchEntity):
     """Commutateur pour l'état des relais du Cerbo GX."""
     
     def __init__(self, device_name: str, id_site: str, mqtt_client: CerboMQTTClient):
-        state_topic = f"N/{id_site}/system/0/Relay/0/State"
-        command_topic = f"W/{id_site}/system/0/Relay/0/State"  # Topic pour commander le relais
-        value_key = ""  # Définir la clé de valeur pour l'état du relais
-        
-        super().__init__(device_name, id_site, mqtt_client, state_topic, value_key)
-        
+        self._device_name = device_name
+        self._id_site = id_site
+        self._mqtt_client = mqtt_client
+        self._state_topic = f"N/{id_site}/system/0/Relay/0/State"
+        self._command_topic = f"W/{id_site}/system/0/Relay/0/State"
         self._attr_name = f"{device_name} Relay State"
         self._attr_unique_id = f"{id_site}_relay_state"
-        self._attr_device_class = RelayDeviceClass.RELAY
+        self._attr_device_class = "relay"  # Utilisez une chaîne de caractères pour la classe de l'appareil
         self._attr_is_on = False  # État initial du commutateur
-        self._command_topic = command_topic  # Topic pour envoyer les commandes
+
+        # Abonnement au topic MQTT
+        self._mqtt_client.add_subscription(self._state_topic, self.on_mqtt_message)
+
+    async def async_added_to_hass(self):
+        """Abonnez-vous aux messages MQTT lorsque l'entité est ajoutée."""
+        _LOGGER.info("Abonnement au topic MQTT pour %s", self._attr_name)
+
+    async def async_will_remove_from_hass(self):
+        """Désabonnez-vous des messages MQTT lorsque l'entité est retirée."""
+        _LOGGER.info("Désabonnement du topic MQTT pour %s", self._attr_name)
+        self._mqtt_client.remove_subscription(self._state_topic, self.on_mqtt_message)
 
     async def async_turn_on(self, **kwargs):
         """Activer le relais."""
@@ -187,7 +197,7 @@ class CerboRelaySensor(SwitchEntity):  # Remplacez SensorEntity par SwitchEntity
         """Mettre à jour l'état du commutateur en fonction du message MQTT."""
         try:
             payload = json.loads(msg.payload)
-            value = self._extract_value(payload)
+            value = payload.get("value")  # Utilisez .get() pour éviter les KeyError
             if value is not None:
                 self._attr_is_on = bool(value)
                 self.async_write_ha_state()
@@ -197,21 +207,31 @@ class CerboRelaySensor(SwitchEntity):  # Remplacez SensorEntity par SwitchEntity
             _LOGGER.error("Erreur lors du traitement du message : %s", e)
 
 
-class CerboRelaySensor2(SwitchEntity):  # Remplacez SensorEntity par SwitchEntity
+class CerboRelaySensor2(SwitchEntity):
     """Commutateur pour l'état des relais du Cerbo GX."""
     
     def __init__(self, device_name: str, id_site: str, mqtt_client: CerboMQTTClient):
-        state_topic = f"N/{id_site}/system/0/Relay/1/State"
-        command_topic = f"W/{id_site}/system/0/Relay/1/State"  # Topic pour commander le relais
-        value_key = ""  # Définir la clé de valeur pour l'état du relais
-        
-        super().__init__(device_name, id_site, mqtt_client, state_topic, value_key)
-        
+        self._device_name = device_name
+        self._id_site = id_site
+        self._mqtt_client = mqtt_client
+        self._state_topic = f"N/{id_site}/system/0/Relay/1/State"
+        self._command_topic = f"W/{id_site}/system/0/Relay/1/State"
         self._attr_name = f"{device_name} Relay State 2"
         self._attr_unique_id = f"{id_site}_relay_state_2"
-        self._attr_device_class = RelayDeviceClass.RELAY
+        self._attr_device_class = "relay"  # Utilisez une chaîne de caractères pour la classe de l'appareil
         self._attr_is_on = False  # État initial du commutateur
-        self._command_topic = command_topic  # Topic pour envoyer les commandes
+
+        # Abonnement au topic MQTT
+        self._mqtt_client.add_subscription(self._state_topic, self.on_mqtt_message)
+
+    async def async_added_to_hass(self):
+        """Abonnez-vous aux messages MQTT lorsque l'entité est ajoutée."""
+        _LOGGER.info("Abonnement au topic MQTT pour %s", self._attr_name)
+
+    async def async_will_remove_from_hass(self):
+        """Désabonnez-vous des messages MQTT lorsque l'entité est retirée."""
+        _LOGGER.info("Désabonnement du topic MQTT pour %s", self._attr_name)
+        self._mqtt_client.remove_subscription(self._state_topic, self.on_mqtt_message)
 
     async def async_turn_on(self, **kwargs):
         """Activer le relais."""
@@ -236,7 +256,7 @@ class CerboRelaySensor2(SwitchEntity):  # Remplacez SensorEntity par SwitchEntit
         """Mettre à jour l'état du commutateur en fonction du message MQTT."""
         try:
             payload = json.loads(msg.payload)
-            value = self._extract_value(payload)
+            value = payload.get("value")  # Utilisez .get() pour éviter les KeyError
             if value is not None:
                 self._attr_is_on = bool(value)
                 self.async_write_ha_state()
