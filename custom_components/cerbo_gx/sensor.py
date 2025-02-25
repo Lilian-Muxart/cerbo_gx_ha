@@ -149,17 +149,32 @@ class RelayDeviceClass:
 class CerboRelaySensor(CerboBaseSensor):
     """Capteur pour l'état des relais du Cerbo GX."""
     
-    def __init__(self, device_name: str, id_site: str, mqtt_client: CerboMQTTClient):
-        state_topic = f"N/{id_site}/system/0/Relay/0/State"
+    def __init__(self, device_name: str, id_site: str, mqtt_client: CerboMQTTClient, relay_number: int):
+        self._relay_number = relay_number
+        state_topic = f"N/{id_site}/system/0/Relay/{relay_number}/State"  # Topic pour recevoir l'état
         value_key = ""  # Définir la clé de valeur pour l'état du relais
         
         super().__init__(device_name, id_site, mqtt_client, state_topic, value_key)
         
-        self._attr_name = f"{device_name} Relay State"
-        self._attr_unique_id = f"{id_site}_relay_state"
+        self._attr_name = f"{device_name} Relay {relay_number} State"
+        self._attr_unique_id = f"{id_site}_relay_state_{relay_number}"
         self._attr_device_class = RelayDeviceClass.RELAY
         self._attr_native_unit_of_measurement = ""
-        self._attr_is_read_only = True  # Indique que l'état est en lecture seule
+        self._attr_is_read_only = False  # Permet de changer l'état via Home Assistant
+
+    async def async_turn_on(self, **kwargs):
+        """Action pour allumer le relais."""
+        _LOGGER.info(f"Allumer le relais {self._relay_number}")
+        payload = json.dumps({"value": 1})  # Envoyer un payload avec "value": 1
+        topic = f"W/{self._id_site}/system/0/Relay/{self._relay_number}/State"  # Topic pour envoyer la commande
+        self._mqtt_client.publish(topic, payload)
+
+    async def async_turn_off(self, **kwargs):
+        """Action pour éteindre le relais."""
+        _LOGGER.info(f"Éteindre le relais {self._relay_number}")
+        payload = json.dumps({"value": 0})  # Envoyer un payload avec "value": 0
+        topic = f"W/{self._id_site}/system/0/Relay/{self._relay_number}/State"  # Topic pour envoyer la commande
+        self._mqtt_client.publish(topic, payload)
 
 
 
@@ -167,7 +182,7 @@ class CerboRelaySensor2(CerboBaseSensor):
     """Capteur pour l'état des relais du Cerbo GX."""
     
     def __init__(self, device_name: str, id_site: str, mqtt_client: CerboMQTTClient):
-        state_topic = f"N/{id_site}/system/0/Relay/1/State"
+        state_topic = f"N/{id_site}/system/0/Relay/1/State"  # Topic pour recevoir l'état
         value_key = ""  # Définir la clé de valeur pour l'état du relais
         
         super().__init__(device_name, id_site, mqtt_client, state_topic, value_key)
@@ -176,4 +191,18 @@ class CerboRelaySensor2(CerboBaseSensor):
         self._attr_unique_id = f"{id_site}_relay_state_2"
         self._attr_device_class = RelayDeviceClass.RELAY
         self._attr_native_unit_of_measurement = ""
-        self._attr_is_read_only = True  # Indique que l'état est en lecture seule
+        self._attr_is_read_only = False  # Permet de changer l'état via Home Assistant
+
+    async def async_turn_on(self, **kwargs):
+        """Action pour allumer le relais 2."""
+        _LOGGER.info(f"Allumer le relais 2")
+        payload = json.dumps({"value": 1})  # Envoyer un payload avec "value": 1
+        topic = f"W/{self._id_site}/system/0/Relay/1/State"  # Topic pour envoyer la commande
+        self._mqtt_client.publish(topic, payload)
+
+    async def async_turn_off(self, **kwargs):
+        """Action pour éteindre le relais 2."""
+        _LOGGER.info(f"Éteindre le relais 2")
+        payload = json.dumps({"value": 0})  # Envoyer un payload avec "value": 0
+        topic = f"W/{self._id_site}/system/0/Relay/1/State"  # Topic pour envoyer la commande
+        self._mqtt_client.publish(topic, payload)
