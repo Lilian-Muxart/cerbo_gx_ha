@@ -6,6 +6,8 @@ from homeassistant.components.sensor import SensorDeviceClass
 from .mqtt_client import CerboMQTTClient  # Client MQTT importé (à définir dans mqtt_client.py)
 from homeassistant.core import HomeAssistant
 from . import DOMAIN
+from .switch import CerboRelaySwitch  # Ajouter l'import du switch
+
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -34,8 +36,13 @@ async def async_setup_entry(hass: HomeAssistantType, entry, async_add_entities) 
         CerboRelaySensor(device_name, id_site, mqtt_client),
         CerboRelaySensor2(device_name, id_site, mqtt_client),
     ]
-
+    switches = [
+    CerboRelaySwitch(device_name, id_site, mqtt_client, 0),  # Relais 1
+    CerboRelaySwitch(device_name, id_site, mqtt_client, 1),  # Relais 2
+]
     # Ajouter les capteurs à Home Assistant
+    async_add_entities(switches, update_before_add=True)
+
     async_add_entities(sensors, update_before_add=True)
 
     _LOGGER.info("Capteurs ajoutés pour %s", device_name)
