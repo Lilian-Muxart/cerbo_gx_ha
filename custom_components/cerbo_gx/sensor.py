@@ -31,8 +31,8 @@ async def async_setup_entry(hass: HomeAssistantType, entry, async_add_entities) 
         CerboVoltageSensor(device_name, id_site, mqtt_client),
         CerboWattSensor(device_name, id_site, mqtt_client),
         CerboAmperageSensor(device_name, id_site, mqtt_client),
-        CerboRelaySensor(device_name, id_site, mqtt_client, 0),
-        CerboRelaySensor(device_name, id_site, mqtt_client, 1),
+        CerboRelaySensor(device_name, id_site, mqtt_client, 0),  # Ajout du relay_number
+        CerboRelaySensor(device_name, id_site, mqtt_client, 1),  # Ajout du relay_number
     ]
 
     # Ajouter les capteurs à Home Assistant
