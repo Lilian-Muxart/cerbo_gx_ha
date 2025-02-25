@@ -4,7 +4,7 @@ from homeassistant.components.switch import SwitchEntity
 from homeassistant.helpers.typing import HomeAssistantType
 from homeassistant.core import HomeAssistant
 from .mqtt_client import CerboMQTTClient  # Client MQTT à définir dans mqtt_client.py
-from . import DOMAIN
+from .. import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
