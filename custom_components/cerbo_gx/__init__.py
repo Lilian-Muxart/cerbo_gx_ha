@@ -6,7 +6,7 @@ from homeassistant.const import Platform
 from .mqtt_client import MQTTManager
 
 DOMAIN = "cerbo_gx"
-PLATFORMS = [Platform.SENSOR]
+PLATFORMS = [Platform.SENSOR, Platform.SWITCH]
 _LOGGER = logging.getLogger(__name__)
 
 # Instancier le gestionnaire de clients MQTT
