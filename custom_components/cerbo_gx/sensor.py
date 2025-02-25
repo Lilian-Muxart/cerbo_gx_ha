@@ -1,6 +1,6 @@
 import logging
 import json
-from homeassistant.components.switch import SwitchEntity
+from homeassistant.components.sensor import SensorEntity
 from homeassistant.helpers.typing import HomeAssistantType
 from homeassistant.components.sensor import SensorDeviceClass
 from .mqtt_client import CerboMQTTClient  # Client MQTT importé (à définir dans mqtt_client.py)
@@ -32,14 +32,15 @@ async def async_setup_entry(hass: HomeAssistantType, entry, async_add_entities) 
         CerboTemperatureSensor(device_name, id_site, mqtt_client),
         CerboWattSensor(device_name, id_site, mqtt_client),
         CerboAmperageSensor(device_name, id_site, mqtt_client),
-        CerboRelaySwitch(device_name, id_site, mqtt_client, 0),
-        CerboRelaySwitch(device_name, id_site, mqtt_client, 1),
+        CerboRelaySensor(device_name, id_site, mqtt_client),
+        CerboRelaySensor2(device_name, id_site, mqtt_client),
     ]
 
     # Ajouter les capteurs à Home Assistant
     async_add_entities(sensors, update_before_add=True)
 
     _LOGGER.info("Capteurs ajoutés pour %s", device_name)
+
 
 class CerboBaseSensor(SensorEntity):
     def __init__(self, device_name: str, id_site: str, mqtt_client: CerboMQTTClient, state_topic: str, value_key: str):
@@ -115,6 +116,7 @@ class CerboVoltageSensor(CerboBaseSensor):
         self._attr_device_class = SensorDeviceClass.VOLTAGE
         self._attr_native_unit_of_measurement = "V"
 
+
 class CerboTemperatureSensor(CerboBaseSensor):
     """Capteur pour la température du Cerbo GX."""
 
@@ -154,71 +156,38 @@ class CerboAmperageSensor(CerboBaseSensor):
         self._attr_native_unit_of_measurement = "A"
         self._attr_suggested_display_precision = 2  # Précision à 2 décimales
 
-class CerboRelaySwitch(SwitchEntity):
-    """Interrupteur pour contrôler les relais du Cerbo GX."""
+class RelayDeviceClass:
+    RELAY = "relay"
 
-    def __init__(self, device_name: str, id_site: str, mqtt_client: CerboMQTTClient, relay_index: int):
-        self._device_name = device_name
-        self._id_site = id_site
-        self._state = False
-        self._mqtt_client = mqtt_client
-        self._relay_index = relay_index
-        self._state_topic = f"N/{id_site}/system/0/Relay/{relay_index}/State"
-        self._command_topic = f"W/{id_site}/system/0/Relay/{relay_index}/State"
-        self._attr_device_info = {
-            "identifiers": {(DOMAIN, id_site)},
-            "name": device_name,
-            "manufacturer": "Victron Energy",
-            "model": "Cerbo GX",
-        }
 
-    async def async_added_to_hass(self):
-        """Abonnez-vous aux messages MQTT lorsque l'entité est ajoutée."""
-        _LOGGER.info("Abonnement au topic MQTT pour %s", self._attr_name)
-        self._mqtt_client.add_subscription(self._state_topic, self.on_mqtt_message)
+class CerboRelaySensor(CerboBaseSensor):
+    """Capteur pour l'état des relais du Cerbo GX."""
 
-    async def async_will_remove_from_hass(self):
-        """Désabonnez-vous des messages MQTT lorsque l'entité est retirée."""
-        _LOGGER.info("Désabonnement du topic MQTT pour %s", self._attr_name)
-        self._mqtt_client.remove_subscription(self._state_topic, self.on_mqtt_message)
+    def __init__(self, device_name: str, id_site: str, mqtt_client: CerboMQTTClient):
+        state_topic = f"N/{id_site}/system/0/Relay/0/State"
+        value_key = ""  # Définir la clé de valeur pour l'état du relais
 
-    def on_mqtt_message(self, client, userdata, msg):
-        try:
-            if not msg.payload:
-                _LOGGER.warning("Message vide reçu sur le topic %s", msg.topic)
-                return
+        super().__init__(device_name, id_site, mqtt_client, state_topic, value_key)
 
-            payload = json.loads(msg.payload)
-            value = payload.get("value")
+        self._attr_name = f"{device_name} Relay State"
+        self._attr_unique_id = f"{id_site}_relay_state"
+        self._attr_device_class = RelayDeviceClass.RELAY
+        self._attr_native_unit_of_measurement = ""
+        self._attr_is_read_only = True  # Indique que l'état est en lecture seule
 
-            if value is not None:
-                self._state = bool(value)
-                self.hass.loop.call_soon_threadsafe(self.async_write_ha_state)
 
-        except json.JSONDecodeError as e:
-            _LOGGER.error(f"Erreur de décodage du message JSON sur le topic {msg.topic}: {e}")
-        except Exception as e:
-            _LOGGER.error("Erreur lors du traitement du message : %s", e)
 
-    @property
-    def is_on(self):
-        return self._state
+class CerboRelaySensor2(CerboBaseSensor):
+    """Capteur pour l'état des relais du Cerbo GX."""
 
-    async def async_turn_on(self, **kwargs):
-        """Allumer l'interrupteur."""
-        await self._mqtt_client.publish(self._command_topic, json.dumps({"value": 1}))
-        self._state = True
-        self.async_write_ha_state()
+    def __init__(self, device_name: str, id_site: str, mqtt_client: CerboMQTTClient):
+        state_topic = f"N/{id_site}/system/0/Relay/1/State"
+        value_key = ""  # Définir la clé de valeur pour l'état du relais
 
-    async def async_turn_off(self, **kwargs):
-        """Éteindre l'interrupteur."""
-        await self._mqtt_client.publish(self._command_topic, json.dumps({"value": 0}))
-        self._state = False
-        self.async_write_ha_state()
+        super().__init__(device_name, id_site, mqtt_client, state_topic, value_key)
 
-    async def async_toggle(self, **kwargs):
-        """Basculer l'état de l'interrupteur."""
-        command = 0 if self._state else 1
-        await self._mqtt_client.publish(self._command_topic, json.dumps({"value": command}))
-        self._state = not self._state
-        self.async_write_ha_state()
+        self._attr_name = f"{device_name} Relay State 2"
+        self._attr_unique_id = f"{id_site}_relay_state_2"
+        self._attr_device_class = RelayDeviceClass.RELAY
+        self._attr_native_unit_of_measurement = ""
+        self._attr_is_read_only = True  # Indique que l'état est en lecture seule
