@@ -16,7 +16,6 @@ async def async_setup_entry(hass: HomeAssistantType, entry, async_add_entities) 
     # Récupérer le client MQTT initialisé dans __init__.py
     mqtt_client = hass.data[DOMAIN][entry.entry_id]["mqtt_client"]
 
-    # Vérifier que le client est disponible
     if not mqtt_client:
         _LOGGER.error("Le client MQTT n'est pas disponible pour %s", device_name)
         return
@@ -25,17 +24,14 @@ async def async_setup_entry(hass: HomeAssistantType, entry, async_add_entities) 
         "Initialisation des switches pour le dispositif %s avec l'ID de site %s", device_name, id_site
     )
 
-    # Liste des switches à ajouter
     switches = [
-        CerboRelaySwitch(device_name, id_site, mqtt_client, 0),  # Relais 1
-        CerboRelaySwitch(device_name, id_site, mqtt_client, 1),  # Relais 2
+        CerboRelaySwitch(device_name, id_site, mqtt_client, 0),
+        CerboRelaySwitch(device_name, id_site, mqtt_client, 1),
     ]
 
-    # Ajouter les switches à Home Assistant
     async_add_entities(switches, update_before_add=True)
 
     _LOGGER.info("Switchs ajoutés pour %s", device_name)
-
 
 class CerboRelaySwitch(SwitchEntity):
     """Classe représentant un switch pour le contrôle des relais."""
@@ -54,13 +50,13 @@ class CerboRelaySwitch(SwitchEntity):
     async def async_added_to_hass(self):
         """S'abonner au topic MQTT pour le relais à l'initialisation."""
         _LOGGER.info(f"Abonnement au topic MQTT pour le relais {self._relay_index + 1}")
-        state_topic = f"W/{self._id_site}/system/0/Relay/{self._relay_index}/State"
+        state_topic = f"R/{self._id_site}/system/0/Relay/{self._relay_index}/State"
         self._mqtt_client.add_subscription(state_topic, self.on_mqtt_message)
 
     async def async_will_remove_from_hass(self):
         """Désabonnement lors de la suppression de l'entité."""
         _LOGGER.info(f"Désabonnement du topic MQTT pour le relais {self._relay_index + 1}")
-        state_topic = f"W/{self._id_site}/system/0/Relay/{self._relay_index}/State"
+        state_topic = f"R/{self._id_site}/system/0/Relay/{self._relay_index}/State"
         self._mqtt_client.remove_subscription(state_topic, self.on_mqtt_message)
 
     def on_mqtt_message(self, client, userdata, msg):
@@ -73,7 +69,6 @@ class CerboRelaySwitch(SwitchEntity):
             payload = json.loads(msg.payload)
             value = payload.get("value", None)
             if value is not None:
-                # Mise à jour de l'état du switch en fonction du message
                 self._state = (value == 1)
                 self.hass.loop.call_soon_threadsafe(self.async_write_ha_state)
         
@@ -93,7 +88,7 @@ class CerboRelaySwitch(SwitchEntity):
         payload = json.dumps({"value": 1})
         state_topic = f"W/{self._id_site}/system/0/Relay/{self._relay_index}/State"
         self._mqtt_client.publish(state_topic, payload)
-        self._state = True  # Mise à jour de l'état du relais
+        self._state = True
         self.async_write_ha_state()
 
     async def async_turn_off(self, **kwargs):
@@ -102,5 +97,5 @@ class CerboRelaySwitch(SwitchEntity):
         payload = json.dumps({"value": 0})
         state_topic = f"W/{self._id_site}/system/0/Relay/{self._relay_index}/State"
         self._mqtt_client.publish(state_topic, payload)
-        self._state = False  # Mise à jour de l'état du relais
+        self._state = False
         self.async_write_ha_state()

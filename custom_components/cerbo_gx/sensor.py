@@ -32,16 +32,11 @@ async def async_setup_entry(hass: HomeAssistantType, entry, async_add_entities) 
     sensors = [
         CerboVoltageSensor(device_name, id_site, mqtt_client),
         CerboWattSensor(device_name, id_site, mqtt_client),
+        CerboPowerSensor(device_name, id_site, mqtt_client),
         CerboAmperageSensor(device_name, id_site, mqtt_client),
         CerboRelaySensor(device_name, id_site, mqtt_client),
         CerboRelaySensor2(device_name, id_site, mqtt_client),
     ]
-    switches = [
-    CerboRelaySwitch(device_name, id_site, mqtt_client, 0),  # Relais 1
-    CerboRelaySwitch(device_name, id_site, mqtt_client, 1),  # Relais 2
-]
-    # Ajouter les capteurs à Home Assistant
-    async_add_entities(switches, update_before_add=True)
 
     async_add_entities(sensors, update_before_add=True)
 
@@ -135,6 +130,20 @@ class CerboWattSensor(CerboBaseSensor):
         self._attr_device_class = SensorDeviceClass.POWER
         self._attr_native_unit_of_measurement = "W"
         self._attr_suggested_display_precision = 2  # Précision à 2 décimales
+
+class CerboPowerSensor(CerboBaseSensor):
+    """Capteur pour la puissance solaire du Cerbo GX."""
+
+    def __init__(self, device_name: str, id_site: str, mqtt_client: CerboMQTTClient):
+        state_topic = f"N/{id_site}/system/0/Dc/System/Power"
+        value_key = ""  # Nous voulons extraire la tension
+        super().__init__(device_name, id_site, mqtt_client, state_topic, value_key)
+        self._attr_name = f"{device_name} Power"
+        self._attr_unique_id = f"{id_site}_power"
+        self._attr_device_class = SensorDeviceClass.POWER
+        self._attr_native_unit_of_measurement = "W"
+        self._attr_suggested_display_precision = 2  # Précision à 2 décimales
+
 
 class CerboAmperageSensor(CerboBaseSensor):
     """Capteur pour l'ampérage du Cerbo GX."""
