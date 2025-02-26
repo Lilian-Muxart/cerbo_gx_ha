@@ -50,13 +50,13 @@ class CerboRelaySwitch(SwitchEntity):
     async def async_added_to_hass(self):
         """S'abonner au topic MQTT pour le relais à l'initialisation."""
         _LOGGER.info(f"Abonnement au topic MQTT pour le relais {self._relay_index + 1}")
-        state_topic = f"R/{self._id_site}/system/0/Relay/{self._relay_index}/State"
+        state_topic = f"N/{self._id_site}/system/0/Relay/{self._relay_index}/State"
         self._mqtt_client.add_subscription(state_topic, self.on_mqtt_message)
 
     async def async_will_remove_from_hass(self):
         """Désabonnement lors de la suppression de l'entité."""
         _LOGGER.info(f"Désabonnement du topic MQTT pour le relais {self._relay_index + 1}")
-        state_topic = f"R/{self._id_site}/system/0/Relay/{self._relay_index}/State"
+        state_topic = f"N/{self._id_site}/system/0/Relay/{self._relay_index}/State"
         self._mqtt_client.remove_subscription(state_topic, self.on_mqtt_message)
 
     def on_mqtt_message(self, client, userdata, msg):
